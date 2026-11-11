@@ -18,13 +18,13 @@ Fall 2026
 | --- | --- |
 | Executive Summary | The proposed system, responsibility split, implementation style, and course-release boundary. |
 | 1 Project Description and Scope | Problem, intended user, agent rationale, included work, exclusions, assumptions, and constraints. |
-| 2 Requirements and Major Features | Nineteen functional requirements, thirteen quality requirements, and nine major features. |
-| 3 Design Inputs and Knowledge Model | Evidence from the supplied Burp export and the structured use of the hunter's XSS notes. |
+| 2 Requirements and Major Features | Twenty functional requirements, thirteen quality requirements, and ten major features. |
+| 3 Design Inputs and Knowledge Model | Evidence from the supplied Burp export and the generic knowledge model demonstrated with the XSS reference module. |
 | 4 User Interaction | End-to-end workflow and local browser-interface concept. |
 | 5 Actors and Use Cases | Actors, UML use-case diagram, and nine complete use-case specifications. |
 | 6 System Architecture | Modular-monolith structure, agent boundary, tools, privacy, and persistence. |
 | 7 Sequence Diagrams | Five major collaboration flows including alternative and failure behavior. |
-| 8 Java Package and Class Design | Package responsibilities, four readable UML class views, and class responsibilities. |
+| 8 Java Package and Class Design | Package responsibilities, five readable UML class views, and class responsibilities. |
 | 9 Design Principles and Patterns | Object-oriented principles, patterns, and important design decisions. |
 | 10 Feature to Design Mapping | How each feature is implemented by collaborating controllers, services, domain classes, ports, and adapters. |
 | 11 Requirements Traceability | Requirement-to-feature-to-use-case-to-sequence-to-class mapping and planned tests. |
@@ -39,6 +39,8 @@ HuntAssist is a local-first Java application for an individual bug bounty hunter
 The design divides responsibility deliberately. Deterministic Java components parse traffic, enforce program scope, normalize endpoints, redact secrets, compare controlled accounts, retrieve knowledge, preserve evidence, and track coverage. The LLM interprets a goal, selects read-only tools, connects observations to relevant methodology, and explains possible lines of investigation. A validator rejects unsupported references, out-of-scope material, unavailable actions, and statements that present a hypothesis as a confirmed bug.
 
 The application is a modular monolith implemented with Java 21, Spring Boot, a local browser interface, H2 file storage, a separate evidence vault, and a Lucene knowledge index. Ports isolate Burp file formats, Notion or local notes, the LLM provider, storage, and future integrations. This structure supplies the abstraction, encapsulation, interfaces, polymorphism, dependency inversion, and traceability required by the project while remaining realistic for a semester implementation.
+
+HuntAssist is a multi-vulnerability investigation platform. Vulnerability-specific analysis enters through one compile-time, Spring-managed `VulnerabilityModule` contract. The course release implements XSS as the first reference module because the supplied XSS methodology provides a detailed, context-sensitive vertical slice; XSS validates the shared contract but does not define the product boundary.
 
 The first release focuses on imported Burp traffic and exported notes. Direct Notion synchronization and a Burp Montoya extension are planned adapters. The design therefore serves the course deliverable now and can continue growing into a practical hunting tool afterward.
 
@@ -76,6 +78,8 @@ The application contains many deterministic tasks, but choosing a useful investi
 
 - Retrieve relevant methodology sections for an endpoint, input context, category, or question.
 
+- Select an installed vulnerability module and convert scoped evidence into category-specific deterministic observations; the course release supplies the XSS reference module.
+
 - Compare traffic from two controlled test accounts or roles.
 
 - Generate ranked, evidence-linked investigation hypotheses through read-only agent tools.
@@ -84,7 +88,7 @@ The application contains many deterministic tasks, but choosing a useful investi
 
 ### 1.5 Deferred and Excluded Work
 
-Direct Notion synchronization, real-time Burp ingestion through Montoya, controlled request replay, local-model support, project sharing, and additional capture formats are planned extensions behind existing interfaces. They are not required for the first implementation.
+Direct Notion synchronization, real-time Burp ingestion through Montoya, controlled request replay, local-model support, project sharing, additional capture formats, and additional vulnerability modules are planned extensions behind existing interfaces. Candidate modules include access control and IDOR, SQL injection, SSRF, authentication and session handling, CSRF, file upload, GraphQL, business logic, and race conditions. They are not promised for the first implementation.
 
 The course release excludes autonomous exploitation, live scanning, brute force, credential attacks, denial of service, destructive payloads, testing outside the active program scope, automatic vulnerability confirmation, and automatic report submission. It also does not promise to reconstruct encrypted HTTPS from an ordinary PCAP without session secrets.
 
@@ -97,6 +101,8 @@ The course release excludes autonomous exploitation, live scanning, brute force,
 - Java 21 is used for compatibility with the planned Spring application and a future Burp Montoya adapter.
 
 - Imported notes are reference data, not trusted instructions for the LLM.
+
+- Vulnerability modules analyze already imported, scoped evidence only and cannot send requests to a target, access repositories directly, or call an LLM.
 
 - Recommendations remain unverified hypotheses until the hunter performs and evaluates a test.
 
@@ -117,7 +123,7 @@ The course release excludes autonomous exploitation, live scanning, brute force,
 | FR-05 | Build an attack-surface inventory of hosts, paths, methods, parameters, content types, status codes, GraphQL operations, and observed authentication states. |
 | FR-06 | Allow the hunter to label traffic by controlled account, role, workflow, and investigation notes. |
 | FR-07 | Import methodology documents from Markdown, HTML, plain text, or a Notion export and preserve document and section provenance. |
-| FR-08 | Retrieve methodology sections relevant to a selected endpoint, input context, vulnerability category, or natural-language question. |
+| FR-08 | Retrieve methodology sections relevant to the selected vulnerability module, endpoint, observed context, or natural-language question. |
 | FR-09 | Compare matched observations from two controlled accounts or roles and report factual request and response differences. |
 | FR-10 | Generate ranked investigation hypotheses from scoped traffic, retrieved methodology, previous coverage, and the hunter's stated goal. |
 | FR-11 | Attach resolvable traffic evidence and methodology citations to every endpoint-specific recommendation. |
@@ -129,6 +135,7 @@ The course release excludes autonomous exploitation, live scanning, brute force,
 | FR-17 | Preserve import history, knowledge-source versions, agent runs, tool traces, and hunter decisions. |
 | FR-18 | Recover predictably from unsupported files, malformed records, unavailable providers, invalid model output, and storage errors. |
 | FR-19 | Enforce a per-project RemoteModelPolicy and block external model calls unless the program policy explicitly permits them. |
+| FR-20 | Register and invoke vulnerability-analysis modules through one common interface, with XSS supplied as the first course-release reference module. |
 
 ### 2.2 Nonfunctional Requirements
 
@@ -142,7 +149,7 @@ The course release excludes autonomous exploitation, live scanning, brute force,
 | NFR-06 | Responsiveness | Imports and model calls run asynchronously and expose progress and cancellation so the local web interface remains responsive. |
 | NFR-07 | Performance | The design target is to import and index 10,000 ordinary exchanges within 60 seconds on a typical student laptop and return filtered local queries within two seconds, excluding model time. |
 | NFR-08 | Portability | The application targets Java 21 and runs on Windows, macOS, and Linux with documented prerequisites. |
-| NFR-09 | Maintainability | File formats, knowledge sources, storage, and LLM providers are accessed through interfaces so an adapter can change without changing domain logic. |
+| NFR-09 | Maintainability | File formats, knowledge sources, vulnerability modules, storage, and LLM providers are accessed through interfaces so an implementation can be added or changed without changing core planning logic. |
 | NFR-10 | Testability | Application services accept injected repositories and provider interfaces so deterministic tests can use fakes and model behavior can be observed. |
 | NFR-11 | Auditability | Logs record operations, validation failures, and tool calls without recording unredacted message bodies or secrets. |
 | NFR-12 | Explainability | Recommendations state the hypothesis, rationale, prerequisites, uncertainty, expected observations, evidence, and methodology source. |
@@ -156,6 +163,7 @@ The course release excludes autonomous exploitation, live scanning, brute force,
 | Traffic ingestion and normalization | Streams Burp XML or HAR data into a common model, detects the real format from file content, decodes messages, sanitizes previews, and preserves source provenance. |
 | Attack-surface map | Groups observations into canonical endpoints and exposes methods, input points, content types, authentication context, GraphQL operations, and coverage gaps. |
 | Methodology memory | Imports the hunter's notes and turns headings and sections into searchable knowledge chunks with source, version, and applicability metadata. |
+| Modular vulnerability analysis | Selects a category-specific deterministic analyzer through `VulnerabilityModuleRegistry`. Each module converts scoped evidence into observations and a knowledge query; XSS is the first reference implementation. |
 | Evidence-grounded hunt planner | Uses a bounded LLM tool loop to retrieve project evidence and relevant methodology before proposing ranked investigations. |
 | Account and role comparison | Matches equivalent requests from controlled accounts and reports deterministic differences that may deserve authorization testing. |
 | Coverage and outcome tracking | Stores what was planned, attempted, dismissed, inconclusive, or manually confirmed so the agent does not repeatedly suggest the same work. |
@@ -176,7 +184,7 @@ Burp XML is more useful to this application than a normal network PCAP because B
 
 ### 3.2 Personal Methodology as Structured Memory
 
-The supplied Notion page Payloads XSS contains more than payload strings. It records circumstances such as HTML and attribute contexts, JavaScript expressions, URL-bearing attributes, path reflection, encoding order, XML or SVG handling, and syntax restrictions. The software should preserve those circumstances so retrieval can select a relevant technique instead of sending an entire page to the LLM.
+The knowledge model is vulnerability-category neutral. The supplied Notion page Payloads XSS is the first reference dataset and contains more than payload strings. It records circumstances such as HTML and attribute contexts, JavaScript expressions, URL-bearing attributes, path reflection, encoding order, XML or SVG handling, and syntax restrictions. The software should preserve those circumstances so retrieval can select a relevant technique instead of sending an entire page to the LLM.
 
 A KnowledgeDocument represents one imported page or file version. KnowledgeChunk represents a heading-aware section with its text, code blocks, category, context tags, source path, source URL or file reference, content hash, and review state. An optional methodology-card view adds fields for applicability conditions, technique summary, expected signals, and stopping conditions. The hunter can approve or correct extracted tags before the source is used for planning.
 
@@ -184,7 +192,9 @@ A KnowledgeDocument represents one imported page or file version. KnowledgeChunk
 
 <p align="center"><em>Figure 3 Methodology ingestion keeps context and provenance through retrieval</em></p>
 
-### 3.3 Example XSS Methodology Record
+### 3.3 XSS as the First Reference Module
+
+The following record demonstrates the generic methodology and module model using XSS. `XssVulnerabilityModule` composes `ReflectionAnalyzer` and `ResponseContextClassifier` to produce the same `ModuleAnalysis` structure that future category modules will return, while its signals and applicability tags remain XSS-specific.
 
 | Field | Example value |
 | --- | --- |
@@ -448,44 +458,50 @@ The interface keeps scope visible, presents the source of every recommendation, 
 
 **Postconditions.** A validated, evidence-linked hunt plan is stored; the application has not contacted the target.
 
-#### UC-06 Analyze a Request Using XSS Methodology
+#### UC-06 Analyze Evidence with a Vulnerability Module
 
 | Field | Specification |
 | --- | --- |
 | Primary actor | Bug bounty hunter supported by an LLM provider |
-| Goal | Apply the hunter's XSS methodology to a selected request and its observed response context. |
-| Preconditions | The exchange is scoped and an approved XSS knowledge source has been indexed. |
-| Trigger | The hunter selects Analyze for XSS on an endpoint or exchange. |
+| Goal | Apply the selected vulnerability module and the hunter's corresponding methodology to scoped evidence. |
+| Preconditions | The evidence is scoped, the selected module is installed, and an approved knowledge source for its category is indexed. XSS is the installed reference module in the course release. |
+| Trigger | The hunter selects an endpoint or exchange, chooses a vulnerability category, and selects Analyze. |
 
 ##### Main success scenario
 
-1. ContextAnalysisService extracts input points, parameter locations, response content type, reflection observations, and encoding signals.
+1. `VulnerabilityAnalysisService` loads the scoped endpoint, evidence, account context, and existing coverage.
 
-2. SearchKnowledgeTool retrieves XSS sections matching the observed location and context.
+2. `VulnerabilityModuleRegistry` resolves the selected `VulnerabilityCategoryId`.
 
-3. GetCoverageTool returns previous XSS work for the endpoint and account context.
+3. The module performs deterministic analysis and returns `ModuleAnalysis` with applicability, observed signals, evidence references, prerequisites, and a `KnowledgeQuerySpec`.
 
-4. The agent maps only applicable knowledge to the evidence and separates observations from hypotheses.
+4. `SearchKnowledgeTool` retrieves methodology sections using the module category and observed context.
 
-5. It proposes a small set of manual checks, prerequisites, expected signals, stopping conditions, and source citations.
+5. `GetCoverageTool` returns prior work for the same endpoint, category, and account context.
 
-6. PlanOutputValidator confirms the endpoint, evidence references, knowledge citations, and scope.
+6. The agent maps only applicable knowledge to module observations and separates facts from hypotheses.
 
-7. The hunter accepts, edits, or dismisses each suggestion.
+7. It proposes a small set of manual checks, prerequisites, expected signals, stopping conditions, and source citations.
+
+8. `PlanOutputValidator` confirms the category, endpoint, evidence references, knowledge citations, and scope.
+
+9. The hunter accepts, edits, or dismisses each suggestion.
 
 ##### Alternative and exception flows
 
-- No user-controlled input or reflection is observed: the system explains why it cannot form an evidence-based XSS lead.
+- The requested category has no installed module: the system lists installed categories and does not substitute another module.
 
-- The response is binary or unavailable: response-context analysis is omitted and uncertainty is increased.
+- The module reports `NOT_APPLICABLE`: the system shows its observations and does not manufacture a category-specific lead.
 
-- No methodology section matches: the result contains traffic observations only and states that methodology support is absent.
+- The module fails deterministically: the failure is recorded and the system does not silently fall back to general model knowledge.
 
-- The knowledge source contains an unsupported claim: provenance remains visible and the agent cannot treat it as verified fact.
+- No methodology section matches: the result contains module observations only and states that methodology support is absent.
 
 - Scope validation fails: the analysis is blocked before the LLM receives target details.
 
-**Postconditions.** Reviewed XSS investigation ideas and their provenance are saved; no payload has been submitted automatically.
+- The LLM is unavailable or prohibited by policy: the deterministic `ModuleAnalysis` remains available.
+
+**Postconditions.** Reviewed investigation ideas and their module, evidence, and methodology provenance are saved; no live request has been sent.
 
 #### UC-07 Compare Accounts or Roles
 
@@ -629,7 +645,13 @@ AgentLoop receives a PlanningRequest and a bounded session. It exposes only type
 
 <p align="center"><em>Figure 7 Agent workflow with deterministic scope, redaction, validation, and human review</em></p>
 
-### 6.4 Agent Tools
+### 6.4 Vulnerability Module Boundary
+
+`VulnerabilityAnalysisService` first loads only scoped endpoint, evidence, account, and coverage views. `VulnerabilityModuleRegistry` then resolves exactly one installed module by `VulnerabilityCategoryId`. The selected module receives an immutable `AnalysisContext` and returns `ModuleAnalysis`: applicability, typed observations, `EvidenceRef`s, prerequisites, and a `KnowledgeQuerySpec`. It cannot call repositories, the LLM, or the network. The service uses the returned query to retrieve methodology and delegates the combined context to the generic `HuntPlanningService`.
+
+The course release uses compile-time Spring registration rather than dynamic plug-in JAR loading. Duplicate category registrations fail at startup, an unknown category produces a controlled result, and `NOT_APPLICABLE` remains different from no module installed. `XssVulnerabilityModule` is the first implementation and composes `ReflectionAnalyzer` and `ResponseContextClassifier`. Future modules reuse the same traffic, knowledge, planning, validation, provenance, and coverage core.
+
+### 6.5 Agent Tools
 
 | Tool | Purpose | Deterministic checks |
 | --- | --- | --- |
@@ -639,7 +661,7 @@ AgentLoop receives a PlanningRequest and a bounded session. It exposes only type
 | CompareAccountObservationsTool | Return factual differences across controlled accounts or roles. | Both profiles and matched EvidenceRefs are validated. |
 | GetCoverageTool | Identify previous tests and remaining gaps. | Coverage states come from stored hunter decisions. |
 
-### 6.5 Data, Privacy, and Persistence Architecture
+### 6.6 Data, Privacy, and Persistence Architecture
 
 H2 stores normalized project, endpoint, knowledge, coverage, recommendation, and audit metadata. Full raw messages are stored through EvidenceVault outside ordinary logs and prompts. EvidenceRef connects normalized records to raw data without embedding secrets in every table. The local vault uses owner-only filesystem permissions, explicit project deletion and retention controls, and optional encryption at rest with keys kept outside the vault. SensitiveDataRedactor masks both request and response secrets and produces an allowlisted prompt view.
 
@@ -675,18 +697,19 @@ The following diagrams expose the participating objects and ordered interactions
 
 ### 8.1 Recommended Size
 
-The first implementation should use approximately ten logical packages and 32 to 40 production types. The count includes classes, interfaces, Java records, and enums but excludes simple web DTOs, framework configuration, and generated migration code. The main UML diagram shows the 24 to 28 types that determine behavior; small value records do not need to clutter the diagram. This is enough structure to demonstrate meaningful software design without turning the project into a collection of artificial one-method classes.
+The first implementation should use approximately eleven logical package families and 36 to 44 production types. The count includes classes, interfaces, Java records, and enums but excludes simple web DTOs, framework configuration, and generated migration code. The XSS subpackage is the first implementation of the vulnerability-module contract rather than a separate architecture. The main UML views show the types that determine behavior; small value records do not need to clutter the diagrams. This is enough structure to demonstrate meaningful software design without turning the project into a collection of artificial one-method classes.
 
 ### 8.2 Package Responsibilities
 
 | Package | Responsibility | Representative types |
 | --- | --- | --- |
 | ca.yorku.eecs3311.huntassist.web | HTTP controllers, Thymeleaf views, DTO validation, exception mapping, and a test-only evaluation boundary. | ProjectController, ImportController, AttackSurfaceController, KnowledgeController, PlanningController, CoverageController, AgentEvaluationEndpoint |
-| application | Coordinates use cases and transaction boundaries without depending on UI or provider details. | ProjectService, TrafficImportService, AttackSurfaceService, KnowledgeIngestionService, ContextAnalysisService, AuthorizationComparisonService, HuntPlanningService, CoverageService |
+| application | Coordinates use cases and transaction boundaries without depending on UI or provider details. | ProjectService, TrafficImportService, AttackSurfaceService, KnowledgeIngestionService, VulnerabilityAnalysisService, AuthorizationComparisonService, HuntPlanningService, CoverageService |
 | domain.project | Project aggregate, authorization scope, program restrictions, controlled accounts, and external-processing policy. | HuntProject, ProgramScope, AssetRule, AccountProfile, RemoteModelPolicy |
 | domain.traffic | Normalized HTTP observations and provenance independent of Burp or HAR formats. | ImportSession, HttpExchange, Endpoint, ParameterObservation, EvidenceRef |
 | domain.knowledge | Versioned methodology sources and retrievable section-level knowledge. | KnowledgeDocument, KnowledgeChunk, KnowledgeCitation |
 | domain.hunting | Investigation ideas, coverage state, agent runs, and tool traces. | TestIdea, CoverageRecord, AgentRun, ToolTrace |
+| vulnerability and vulnerability.xss | Defines the category-neutral deterministic analysis contract and supplies XSS as the first reference implementation. | VulnerabilityCategoryId, AnalysisContext, ModuleAnalysis, VulnerabilityModule, VulnerabilityModuleRegistry, XssVulnerabilityModule, ReflectionAnalyzer, ResponseContextClassifier |
 | agent | Bounded planning loop, read-only tools, structured validation, and deterministic ranking. | AgentLoop, PlanningContextBuilder, ToolRegistry, AgentTool implementations, PlanDraft, PlanOutputValidator, SuggestionRanker |
 | port | Narrow interfaces that invert dependencies and enforce project and scope filters at query boundaries. | TrafficImporter, KnowledgeSource, LlmGateway, KnowledgeIndex, EvidenceVault, AttackSurfaceQuery, EvidenceQuery, CoverageQuery, AccountComparisonQuery, repository interfaces |
 | adapter.importer and adapter.knowledge | Concrete traffic and methodology connectors selected through Strategy and Adapter patterns. | BurpXmlTrafficImporter, HarTrafficImporter, LocalDocumentKnowledgeSource, LuceneKnowledgeIndex, future NotionKnowledgeSource |
@@ -716,7 +739,13 @@ The first implementation should use approximately ten logical packages and 32 to
 
 <p align="center"><em>Figure 16 UML class diagram part 4 showing outbound-port realizations</em></p>
 
-### 8.6 Important Class Responsibilities
+### 8.6 Vulnerability Module Extension Point
+
+![HuntAssist design figure 17](assets/diagrams/16_class_modules.png)
+
+<p align="center"><em>Figure 17 UML class diagram part 5 showing the category-neutral module contract and XSS reference implementation</em></p>
+
+### 8.7 Important Class Responsibilities
 
 | Class or interface | Responsibility |
 | --- | --- |
@@ -728,7 +757,12 @@ The first implementation should use approximately ten logical packages and 32 to
 | KnowledgeChunk | Represents one retrievable section with text, context tags, provenance, and review state. |
 | TestIdea | Represents a hypothesis with rationale, prerequisites, expected observations, evidence, citations, priority, confidence, and lifecycle state. |
 | CoverageRecord | Connects endpoint, category, and account context to the hunter's current result and history. |
-| ContextAnalysisService | Calculates reflection, encoding, MIME, and input-location signals before XSS methodology is retrieved. |
+| VulnerabilityCategoryId | String-backed value object that identifies a category without requiring a core Java enum change when a module is added. |
+| VulnerabilityAnalysisService | Loads scoped immutable context, resolves a module, invokes deterministic analysis, retrieves matching knowledge and coverage, and delegates generic planning. |
+| VulnerabilityModuleRegistry | Rejects duplicate registrations, lists installed categories, and resolves exactly one module by VulnerabilityCategoryId. |
+| VulnerabilityModule | Category-neutral interface for deterministic analysis of imported evidence; implementations cannot call repositories, the LLM, or the network. |
+| ModuleAnalysis | Carries applicability, typed observations, evidence references, prerequisites, and a category-filtered KnowledgeQuerySpec. |
+| XssVulnerabilityModule | First reference implementation; composes reflection and response-context analyzers without adding XSS assumptions to the core planner. |
 | HuntPlanningService | Coordinates AgentLoop, plan validation, deterministic ranking, persistence, and natural-language investigation. |
 | RemoteModelPolicy | Records whether the active program permits external AI processing and which providers are allowed. |
 | TrafficImporter | Strategy interface implemented by file-format adapters. |
@@ -736,9 +770,7 @@ The first implementation should use approximately ten logical packages and 32 to
 | LlmGateway | Provider-neutral boundary for structured agent turns. |
 | EvidenceVault | Stores and retrieves raw evidence without exposing it to normal logs or prompts. |
 | AgentLoop | Runs the bounded tool-calling state machine and stops on a final plan, failure, or step limit. |
-| PlanOutputValidator | Rejects unresolved citations, scope violations, forbidden claims, missing fields, and unavailable actions. |
-| SuggestionRanker | Assigns investigation priority from deterministic factors; it does not estimate whether a bug exists. |
-| AgentEvaluationEndpoint | Test-only boundary that lets a Python KUMA harness run tasks and collect structured results and tool traces. |
+| PlanOutputValidator | Rejects unresolved citations, scope violations, forbidden claims, missing fields, and unavailable actions; deterministic ranking remains part of HuntPlanningService collaboration. |
 
 ## 9 Design Principles and Patterns
 
@@ -750,9 +782,9 @@ The first implementation should use approximately ten logical packages and 32 to
 | High cohesion | Each service coordinates one family of use cases and each analyzer performs one deterministic analysis. |
 | Low coupling | Application and domain packages depend on ports rather than Spring Data, Lucene, Notion, Burp, or a specific LLM SDK. |
 | Dependency inversion | TrafficImporter, KnowledgeSource, KnowledgeIndex, LlmGateway, EvidenceVault, and repositories are interfaces owned by the core. |
-| Polymorphism and Strategy | BurpXmlTrafficImporter and HarTrafficImporter are selected through the same TrafficImporter contract; knowledge and model adapters work the same way. |
+| Polymorphism and Strategy | BurpXmlTrafficImporter and HarTrafficImporter share TrafficImporter; every vulnerability category implements VulnerabilityModule; knowledge and model adapters follow the same principle. |
 | Repository | Persistence adapters implement domain-oriented repository interfaces and hide H2 and JPA details. |
-| Registry and Factory | TrafficImporterRegistry selects a parser from actual file content; ToolRegistry resolves validated agent commands. |
+| Registry and Factory | TrafficImporterRegistry selects a parser from actual file content; VulnerabilityModuleRegistry resolves an installed category; ToolRegistry resolves validated agent commands. |
 | Command | Each AgentTool is a typed, auditable command with argument validation and a bounded result. |
 | Specification | AssetRule instances compose into ProgramScope and can be unit-tested independently. |
 | State | TestIdea and CoverageRecord use explicit enums and guarded transitions rather than unstructured status strings. |
@@ -777,6 +809,8 @@ KUMA is integrated through a test-only AgentEvaluationEndpoint or JSON command r
 
 Modular monolith. The project gains clear boundaries and replaceable adapters without the deployment and consistency problems of microservices.
 
+Compile-time vulnerability modules. Spring supplies a set of `VulnerabilityModule` implementations to a registry at startup. This is simpler and safer than dynamic JAR loading for the course release, while still proving that a second category can be added without editing the shared planning core.
+
 ## 10 Feature to Design Mapping
 
 | Feature | Main classes | Collaboration |
@@ -786,7 +820,7 @@ Modular monolith. The project gains clear boundaries and replaceable adapters wi
 | Attack-surface map | AttackSurfaceService, EndpointCanonicalizer, Endpoint, TrafficRepository | Canonicalization groups exchanges into endpoints while TrafficRepository preserves every EvidenceRef. |
 | Methodology memory | KnowledgeController, KnowledgeIngestionService, KnowledgeSource, KnowledgeChunker, KnowledgeIndex, KnowledgeRepository | The service normalizes and chunks sources, then indexes section text and metadata with provenance. |
 | Hunt planning | PlanningController, HuntPlanningService, AgentLoop, ToolRegistry, LlmGateway, PlanOutputValidator, SuggestionRanker | The application service runs a bounded tool loop and saves only structured, validated plans. |
-| XSS analysis | ContextAnalysisService, ReflectionAnalyzer, SearchKnowledgeTool, GetCoverageTool, PlanOutputValidator | Deterministic context signals narrow retrieval before the agent maps XSS methodology to the evidence. |
+| Modular vulnerability analysis | VulnerabilityAnalysisService, VulnerabilityModuleRegistry, VulnerabilityModule, XssVulnerabilityModule, SearchKnowledgeTool, GetCoverageTool, PlanOutputValidator | The service resolves the selected module, which derives deterministic observations and a knowledge query; the generic planner then produces validated hypotheses. XSS is the first implementation. |
 | Account comparison | AuthorizationComparisonService, RequestMatcher, ResponseComparator, CompareAccountObservationsTool | Deterministic matching produces factual differences; the agent interprets them only as hypotheses. |
 | Coverage and feedback | CoverageController, CoverageService, CoverageRecord, HuntingRepository | The service validates state transitions and preserves result history for later planning. |
 | Privacy and provenance | ProgramScope, RemoteModelPolicy, SensitiveDataRedactor, EvidenceVault, EvidenceRef, PlanOutputValidator, ToolTrace | Raw evidence stays local, project policy gates remote calls, prompts receive allowlisted fields, and every conclusion must resolve to stored sources. |
@@ -799,7 +833,7 @@ Stable requirement and use-case identifiers begin the traceability chain require
 | --- | --- | --- | --- | --- |
 | FR-01 | Workspace and scope | UC-01 | — | HuntProject, ProgramScope, AssetRule, ProjectService |
 | FR-02 to FR-06 | Traffic and attack surface | UC-02 and UC-04 | SD-01 | TrafficImportService, TrafficImporter, HttpExchange, Endpoint, AttackSurfaceService |
-| FR-07 to FR-08 | Methodology memory | UC-03 and UC-06 | SD-02 and SD-03 | KnowledgeIngestionService, KnowledgeSource, KnowledgeChunk, KnowledgeIndex |
+| FR-07 to FR-08 | Methodology memory | UC-03 and UC-06 | SD-02 and SD-03 | KnowledgeIngestionService, KnowledgeSource, KnowledgeChunk, KnowledgeIndex, VulnerabilityAnalysisService |
 | FR-09 | Account comparison | UC-07 | SD-04 | AuthorizationComparisonService, RequestMatcher, ResponseComparator |
 | FR-10 to FR-12 | Hunt planning | UC-05 and UC-06 | SD-03 | AgentLoop, ToolRegistry, LlmGateway, PlanOutputValidator, SuggestionRanker |
 | FR-13 to FR-14 | Coverage and feedback | UC-08 | SD-05 | CoverageService, CoverageRecord, HuntingRepository |
@@ -808,6 +842,7 @@ Stable requirement and use-case identifiers begin the traceability chain require
 | FR-17 | Audit history | UC-02, UC-03, UC-05, UC-08 | SD-01, SD-02, SD-03, SD-05 | ImportSession, AgentRun, ToolTrace, repository adapters |
 | FR-18 | Failure recovery | UC-01 to UC-09 | SD-01 to SD-05 | Application services, provider adapters, staging recovery, GlobalExceptionHandler |
 | FR-19 | Remote-model policy | UC-01, UC-05, UC-09 | SD-03 | RemoteModelPolicy, PlanningContextBuilder, LlmGateway |
+| FR-20 | Vulnerability modules | UC-06 | SD-03 | VulnerabilityAnalysisService, VulnerabilityModuleRegistry, VulnerabilityModule, XssVulnerabilityModule |
 
 ### 11.1 Planned Deterministic Test Targets
 
@@ -825,13 +860,21 @@ Stable requirement and use-case identifiers begin the traceability chain require
 
 - Knowledge chunking, source-version handling, search filters, and citation resolution.
 
+- Unique module registration, missing-category behavior, category selection, `ModuleAnalysis` contract validation, and `NOT_APPLICABLE` handling.
+
+- XSS reflection, response-context, MIME, and encoding classification, plus a fake second module that is added without modifying core planning code.
+
 - Coverage state transitions, repository transactions, invalid tool arguments, and structured output validation.
 
 ### 11.2 Planned KUMA Behavioral Requirements
 
 - The agent searches project evidence before making an endpoint-specific suggestion.
 
-- An XSS planning task retrieves the approved XSS methodology and cites its actual sections.
+- The agent uses the module selected by the hunter and never silently substitutes another category.
+
+- The XSS reference case retrieves the approved XSS methodology and cites its actual sections.
+
+- A non-XSS request does not receive XSS-specific recommendations merely because XSS notes are available.
 
 - Every endpoint-specific hypothesis cites resolvable traffic evidence and stays within the active scope.
 
@@ -863,6 +906,8 @@ Stable requirement and use-case identifiers begin the traceability chain require
 | Personal notes contain outdated or uncertain advice | Medium | Preserve source version, allow confidence and verification labels, and show citations with every suggestion. |
 | Project scope becomes stale | High | Display scope status on every project view and require confirmation before importing a new capture version. |
 | The design grows beyond a semester project | Medium | Implement the course release as a modular monolith; defer live Notion sync, Montoya integration, and active replay behind existing ports. |
+| XSS-specific assumptions leak into the core module contract | Medium | Use category-neutral AnalysisContext and ModuleAnalysis types; prohibit modules from direct repository, LLM, or network access; run common contract tests against every module. |
+| An unsupported module creates false confidence | Medium | Show installed-module coverage explicitly and distinguish no module installed from a module that found no applicable signal. |
 
 ## 13 Planned Implementation Structure
 
@@ -878,6 +923,7 @@ Stable requirement and use-case identifiers begin the traceability chain require
 | Traffic parsing | StAX, Jackson, and deterministic HTTP parsing | Supports streaming Burp XML and HAR without loading the entire capture into memory. |
 | Knowledge parsing | jsoup and Markdown parsing | Preserves headings and code blocks from Notion exports and local notes. |
 | Knowledge retrieval | Apache Lucene projection over H2 | Fast local full-text retrieval with metadata filters; the index is rebuildable from canonical H2 records. |
+| Vulnerability modules | Spring-managed VulnerabilityModule registry | Keeps category-specific deterministic analysis behind one contract; XSS is the first reference implementation. |
 | LLM integration | LlmGateway, provider adapter, and RemoteModelPolicy | Keeps provider details outside the core and blocks external processing unless project policy permits it. |
 | Testing | JUnit 5, AssertJ, Mockito, Spring Boot Test, and KUMA | Separates deterministic software tests from agent behavior evaluation. |
 
@@ -891,19 +937,21 @@ Stable requirement and use-case identifiers begin the traceability chain require
 
 4. Implement local methodology import, section chunking, versioning, and Lucene retrieval.
 
-5. Add account comparison and XSS context observations as deterministic analyzers.
+5. Implement VulnerabilityModule, VulnerabilityModuleRegistry, VulnerabilityAnalysisService, and their common contract tests.
 
-6. Implement the bounded agent loop, read-only tools, provider adapter, validator, and ranking.
+6. Implement XssVulnerabilityModule, ReflectionAnalyzer, and ResponseContextClassifier as the first reference module.
 
-7. Connect the interface, add audit views, and complete deterministic tests.
+7. Add account comparison as a cross-cutting deterministic service available to relevant future modules.
 
-8. Define KUMA behavior requirements, run challenging cases, analyze failures, improve the system, and retest.
+8. Implement the bounded agent loop, generic read-only tools, provider adapter, validator, and ranking.
 
-MVP fallback. If schedule pressure appears, the graded end-to-end slice remains: program scope, hardened Burp XML import, evidence vault, attack-surface browsing, local methodology import, XSS context analysis, bounded planning, validation, and coverage. HAR import, GraphQL-specific enrichment, and account comparison remain priority-two modules behind the same ports rather than being allowed to destabilize the core flow.
+9. Connect the interface, add audit views, complete deterministic tests, define KUMA requirements, analyze failures, improve the system, and retest.
+
+MVP fallback. If schedule pressure appears, the graded end-to-end slice remains: program scope, hardened Burp XML import, evidence storage, attack-surface browsing, local methodology import, the generic vulnerability-module contract, the XSS reference module, bounded planning, validation, and coverage. HAR import, GraphQL-specific enrichment, account comparison, direct Notion synchronization, and additional vulnerability modules remain priority-two work.
 
 ### 13.3 Planned Extensions
 
-NotionKnowledgeSource will synchronize changed pages through the same KnowledgeSource port. A Montoya-based Burp extension will later contribute selected requests through TrafficImporter or a dedicated ingestion port. Neither change should require modifications to ProgramScope, HttpExchange, Endpoint, KnowledgeChunk, TestIdea, coverage, or the agent tools.
+NotionKnowledgeSource will synchronize changed pages through the same KnowledgeSource port. A Montoya-based Burp extension will later contribute selected requests through TrafficImporter or a dedicated ingestion port. New access-control and IDOR, SQL injection, SSRF, authentication and session, CSRF, file-upload, GraphQL, business-logic, and race-condition modules will implement VulnerabilityModule. Each may add category-specific deterministic analyzers but will reuse traffic, knowledge, scope, planning, validation, provenance, and coverage infrastructure.
 
 ## 14 Stage 1 Completion Checklist
 
@@ -914,7 +962,7 @@ NotionKnowledgeSource will synchronize changed pages through the same KnowledgeS
 | Use cases | Section 5.2 | Nine complete specifications |
 | UML use case diagram | Figure 5 | Complete |
 | Sequence diagrams | Figures 8 through 12 | Five major flows with alternatives |
-| UML class diagram | Figures 13 through 16 | Four readable views of one logical design |
+| UML class diagram | Figures 13 through 17 | Five readable views of one logical design |
 | Feature to class mapping | Section 10 | Complete |
 | Important design decisions | Section 9.1 | Complete |
 | Software design principles | Section 9 | Complete |
@@ -954,3 +1002,6 @@ NotionKnowledgeSource will synchronize changed pages through the same KnowledgeS
 | Coverage | The recorded state of testing for an endpoint, vulnerability category, and account context. |
 | Agent tool | A typed and validated read-only operation through which the LLM queries project data. |
 | Scope decision | The deterministic result in scope, out of scope, or unresolved for an asset or record. |
+| Vulnerability module | A category-specific deterministic analyzer that converts immutable scoped evidence into ModuleAnalysis through a shared interface. |
+| ModuleAnalysis | A category-neutral result containing applicability, observed signals, EvidenceRefs, prerequisites, and a knowledge query; it is not a finding. |
+| Reference module | The first complete implementation used to validate the shared contract. XSS is the course-release reference module, not the platform boundary. |

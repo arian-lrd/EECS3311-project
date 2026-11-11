@@ -4,6 +4,8 @@ HuntAssist is a local-first bug-bounty traffic analysis and investigation-planni
 
 The planned Java application imports authorized HTTP traffic from Burp Suite, builds a structured attack-surface model, retrieves relevant techniques from the hunter's own methodology notes, and uses a bounded LLM agent to propose evidence-backed manual investigations. Deterministic Java components retain responsibility for parsing, program scope, redaction, evidence, validation, and coverage tracking.
 
+HuntAssist is designed as a multi-vulnerability investigation platform. Category-specific deterministic analysis is provided through a shared `VulnerabilityModule` contract. XSS is the first course-release reference module because the supplied XSS methodology provides a concrete vertical slice; it is not the product boundary.
+
 > Project status: Stage 1 design complete. Implementation and testing have not started.
 
 ## Stage 1 deliverables
@@ -21,6 +23,7 @@ The planned Java application imports authorized HTTP traffic from Burp Suite, bu
 - Map hosts, endpoints, parameters, content types, workflows, and account contexts.
 - Import local Markdown, HTML, text, or Notion-exported methodology notes.
 - Retrieve relevant methodology with section-level provenance.
+- Select an installed vulnerability module and derive category-specific observations from scoped evidence; the initial release supplies the XSS reference module.
 - Compare traffic from controlled accounts or roles.
 - Generate ranked, evidence-linked investigation hypotheses through read-only tools.
 - Track coverage, hunter decisions, and outcomes across sessions.
@@ -33,6 +36,7 @@ The course release does not autonomously exploit targets, send live requests, sc
 - Spring Boot with Spring MVC and Thymeleaf
 - H2 with Flyway for canonical metadata
 - Apache Lucene as a rebuildable knowledge-search projection
+- A Spring-managed `VulnerabilityModule` registry with XSS as its first implementation
 - StAX, Jackson, and deterministic HTTP parsing
 - JUnit 5 for deterministic tests and KUMA for agent-behavior evaluation
 
