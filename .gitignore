@@ -1,0 +1,41 @@
+# Raw bug-bounty evidence
+captures/
+evidence/
+local-data/
+*.pcap
+*.pcapng
+*.har
+*.burp
+burp*.xml
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+*.p12
+*.jks
+
+# Local databases and logs
+*.db
+*.sqlite
+*.mv.db
+*.log
+
+# Java and Maven output
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# IDE and operating-system files
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+.DS_Store
+
