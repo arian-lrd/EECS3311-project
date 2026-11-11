@@ -18,13 +18,13 @@ Fall 2026
 | --- | --- |
 | Executive Summary | The proposed system, responsibility split, implementation style, and course-release boundary. |
 | 1 Project Description and Scope | Problem, intended user, agent rationale, included work, exclusions, assumptions, and constraints. |
-| 2 Requirements and Major Features | Twenty functional requirements, thirteen quality requirements, and ten major features. |
+| 2 Requirements and Major Features | Twenty-one functional requirements, fourteen quality requirements, and ten meaningful domain features. |
 | 3 Design Inputs and Knowledge Model | Evidence from the supplied Burp export and the generic knowledge model demonstrated with the XSS reference module. |
-| 4 User Interaction | End-to-end workflow and local browser-interface concept. |
-| 5 Actors and Use Cases | Actors, UML use-case diagram, and nine complete use-case specifications. |
+| 4 User Interaction | End-to-end workflow, browser GUI, supported CLI, and interface-parity rules. |
+| 5 Actors and Use Cases | Actors, UML use-case diagram, and ten complete use-case specifications. |
 | 6 System Architecture | Modular-monolith structure, agent boundary, tools, privacy, and persistence. |
-| 7 Sequence Diagrams | Five major collaboration flows including alternative and failure behavior. |
-| 8 Java Package and Class Design | Package responsibilities, five readable UML class views, and class responsibilities. |
+| 7 Sequence Diagrams | Six major collaboration flows including a supported CLI path and failure behavior. |
+| 8 Java Package and Class Design | Package responsibilities, six readable UML class views, and class responsibilities. |
 | 9 Design Principles and Patterns | Object-oriented principles, patterns, and important design decisions. |
 | 10 Feature to Design Mapping | How each feature is implemented by collaborating controllers, services, domain classes, ports, and adapters. |
 | 11 Requirements Traceability | Requirement-to-feature-to-use-case-to-sequence-to-class mapping and planned tests. |
@@ -38,9 +38,11 @@ HuntAssist is a local-first Java application for an individual bug bounty hunter
 
 The design divides responsibility deliberately. Deterministic Java components parse traffic, enforce program scope, normalize endpoints, redact secrets, compare controlled accounts, retrieve knowledge, preserve evidence, and track coverage. The LLM interprets a goal, selects read-only tools, connects observations to relevant methodology, and explains possible lines of investigation. A validator rejects unsupported references, out-of-scope material, unavailable actions, and statements that present a hypothesis as a confirmed bug.
 
-The application is a modular monolith implemented with Java 21, Spring Boot, a local browser interface, H2 file storage, a separate evidence vault, and a Lucene knowledge index. Ports isolate Burp file formats, Notion or local notes, the LLM provider, storage, and future integrations. This structure supplies the abstraction, encapsulation, interfaces, polymorphism, dependency inversion, and traceability required by the project while remaining realistic for a semester implementation.
+The application is a modular monolith implemented with Java 21, Spring Boot, two supported local interfaces, H2 file storage, a separate evidence vault, and a Lucene knowledge index. Spring MVC and Thymeleaf provide the browser GUI; Picocli provides the command-line interface. Both are inbound adapters over the same application services. Ports isolate Burp file formats, Notion or local notes, the LLM provider, storage, and future integrations.
 
 HuntAssist is a multi-vulnerability investigation platform. Vulnerability-specific analysis enters through one compile-time, Spring-managed `VulnerabilityModule` contract. The course release implements XSS as the first reference module because the supplied XSS methodology provides a detailed, context-sensitive vertical slice; XSS validates the shared contract but does not define the product boundary.
+
+The supported CLI exposes the agent's major workflows for interactive use and automation with human-readable or versioned JSON output. It cannot bypass the safeguards used by the GUI. The course release allows one process at a time to own a project's H2 database and evidence vault, so `huntassist serve` and standalone CLI commands use an exclusive project-store lock.
 
 The first release focuses on imported Burp traffic and exported notes. Direct Notion synchronization and a Burp Montoya extension are planned adapters. The design therefore serves the course deliverable now and can continue growing into a practical hunting tool afterward.
 
@@ -86,6 +88,8 @@ The application contains many deterministic tasks, but choosing a useful investi
 
 - Track coverage, hunter decisions, outcomes, and source versions across sessions.
 
+- Access major workflows through either the local browser GUI or a supported Java CLI, with both entry paths enforcing the same scope, privacy, validation, persistence, and audit rules.
+
 ### 1.5 Deferred and Excluded Work
 
 Direct Notion synchronization, real-time Burp ingestion through Montoya, controlled request replay, local-model support, project sharing, additional capture formats, and additional vulnerability modules are planned extensions behind existing interfaces. Candidate modules include access control and IDOR, SQL injection, SSRF, authentication and session handling, CSRF, file upload, GraphQL, business logic, and race conditions. They are not promised for the first implementation.
@@ -99,6 +103,12 @@ The course release excludes autonomous exploitation, live scanning, brute force,
 - The first version is a single-user application running locally on the hunter's computer.
 
 - Java 21 is used for compatibility with the planned Spring application and a future Burp Montoya adapter.
+
+- `huntassist serve` launches the browser application; other subcommands boot the same Spring application core in non-web mode.
+
+- The course release allows one process to own a project store at a time. Simultaneous GUI and standalone CLI access is deferred behind a future loopback client mode.
+
+- Provider credentials and other secrets come from local configuration or a secure credential source and are never accepted as command-line arguments.
 
 - Imported notes are reference data, not trusted instructions for the LLM.
 
@@ -136,6 +146,7 @@ The course release excludes autonomous exploitation, live scanning, brute force,
 | FR-18 | Recover predictably from unsupported files, malformed records, unavailable providers, invalid model output, and storage errors. |
 | FR-19 | Enforce a per-project RemoteModelPolicy and block external model calls unless the program policy explicitly permits them. |
 | FR-20 | Register and invoke vulnerability-analysis modules through one common interface, with XSS supplied as the first course-release reference module. |
+| FR-21 | Provide a supported command-line interface for project setup, traffic and knowledge import, attack-surface queries, module discovery and analysis, investigation planning, natural-language questions, and coverage operations. CLI commands shall invoke the same application services and safeguards as the GUI and support human-readable and JSON output. |
 
 ### 2.2 Nonfunctional Requirements
 
@@ -146,7 +157,7 @@ The course release excludes autonomous exploitation, live scanning, brute force,
 | NFR-03 | Privacy | Raw requests and responses remain local. A remote model receives minimized, redacted evidence only when the active project's RemoteModelPolicy permits external processing; otherwise agent planning is disabled. |
 | NFR-04 | Traceability | A hunter must be able to navigate from each recommendation to its source exchanges and methodology sections. |
 | NFR-05 | Reliability | An import uses a recoverable staging area and commits as a complete batch or is marked failed. The interface must not present a partial import as complete. |
-| NFR-06 | Responsiveness | Imports and model calls run asynchronously and expose progress and cancellation so the local web interface remains responsive. |
+| NFR-06 | Responsiveness | Long-running imports and model calls expose progress and cancellation in the browser GUI and progress on stderr plus interrupt handling in the CLI. Cancellation must leave stored state consistent. |
 | NFR-07 | Performance | The design target is to import and index 10,000 ordinary exchanges within 60 seconds on a typical student laptop and return filtered local queries within two seconds, excluding model time. |
 | NFR-08 | Portability | The application targets Java 21 and runs on Windows, macOS, and Linux with documented prerequisites. |
 | NFR-09 | Maintainability | File formats, knowledge sources, vulnerability modules, storage, and LLM providers are accessed through interfaces so an implementation can be added or changed without changing core planning logic. |
@@ -154,6 +165,7 @@ The course release excludes autonomous exploitation, live scanning, brute force,
 | NFR-11 | Auditability | Logs record operations, validation failures, and tool calls without recording unredacted message bodies or secrets. |
 | NFR-12 | Explainability | Recommendations state the hypothesis, rationale, prerequisites, uncertainty, expected observations, evidence, and methodology source. |
 | NFR-13 | Local data protection | The evidence vault uses restrictive filesystem permissions, project deletion and retention controls, and optional encryption at rest with separately managed keys. |
+| NFR-14 | Interface parity and scriptability | GUI and CLI entry points invoke the same application services and enforce identical scope, remote-model policy, redaction, validation, persistence, and audit rules. CLI JSON output and exit-code categories remain documented and stable for the course release. |
 
 ### 2.3 Major Features
 
@@ -169,6 +181,8 @@ The course release excludes autonomous exploitation, live scanning, brute force,
 | Coverage and outcome tracking | Stores what was planned, attempted, dismissed, inconclusive, or manually confirmed so the agent does not repeatedly suggest the same work. |
 | Natural-language investigation | Lets the hunter ask project-specific questions while the agent obtains facts through read-only tools instead of relying on model memory. |
 | Privacy and provenance controls | Keeps raw evidence local, redacts model context, validates citations, and records the source and version of every observation. |
+
+**Supported GUI and CLI delivery channels.** Every major workflow is exposed through one or both inbound presentation adapters while application behavior remains in shared services. This cross-cutting delivery capability satisfies the dual-interface requirement but is not counted as one of the ten meaningful domain features.
 
 ## 3 Design Inputs and Knowledge Model
 
@@ -224,15 +238,50 @@ The following record demonstrates the generic methodology and module model using
 
 7. Record the result so coverage and future planning reflect what was actually tested.
 
-### 4.2 Interface Structure
+### 4.2 Browser GUI
 
-The course release uses a local Spring Boot server with a Thymeleaf interface opened in the user's browser. This keeps business logic in Java, avoids a separate JavaScript application, and leaves the core available to a future Burp extension. The main views are Overview, Traffic Imports, Attack Surface, Knowledge, Hunt Plans, Coverage, and Settings.
+`huntassist serve` starts a local Spring Boot server and opens a Thymeleaf interface in the user's browser. The main views are Overview, Traffic Imports, Attack Surface, Knowledge, Hunt Plans, Coverage, and Settings. The GUI provides searchable tables, evidence navigation, progress indicators, cancellation controls, and forms for decisions that benefit from visual context.
+
+### 4.3 Command Line Interface
+
+The supported Picocli interface exposes the agent's major workflows without duplicating application logic. A standalone subcommand boots Spring in non-web mode, creates the same application request record used by the equivalent controller, and renders the same sanitized result record.
+
+| Workflow | Representative command |
+| --- | --- |
+| Launch GUI | `huntassist serve` |
+| Create project | `huntassist project create --scope-file scope.yaml` |
+| Import evidence | `huntassist traffic import burp-export.xml` |
+| Import knowledge | `huntassist knowledge import notes/` |
+| Inspect surface | `huntassist surface list --format table` |
+| List modules | `huntassist modules list --format json` |
+| Analyze evidence | `huntassist analyze --module xss --endpoint ENDPOINT_ID` |
+| Generate plan | `huntassist plan generate --module xss --endpoint ENDPOINT_ID` |
+| Record coverage | `huntassist coverage record IDEA_ID --result attempted` |
+| Ask a question | `huntassist ask "Which endpoints have untested reflected inputs?"` |
+
+Table output is the human-readable default. `--format json` returns a versioned envelope containing `schemaVersion`, `command`, `status`, `data`, `warnings`, and `errors`. Successful result data goes to stdout; progress and diagnostics go to stderr. Raw evidence is not printed by default, colors are disabled for JSON or noninteractive output, and secrets are never accepted as command arguments.
+
+### 4.4 Interface Parity and Runtime Modes
+
+Web controllers and CLI commands perform presentation validation and mapping only. They call the same application services, which enforce `ProgramScope`, `RemoteModelPolicy`, redaction, module selection, output validation, persistence, and audit history. A project-store lock prevents `huntassist serve` and a standalone command from opening the same H2 database or evidence vault concurrently. A later simultaneous mode can make the CLI a loopback client of the running server.
+
+| Exit category | Meaning |
+| --- | --- |
+| 0 | Success, including a valid `NOT_APPLICABLE` analysis. |
+| 2 | Syntax or argument validation error. |
+| 3 | Project, endpoint, evidence, or module not found. |
+| 4 | Scope or `RemoteModelPolicy` refusal. |
+| 5 | Provider, index, or required dependency unavailable. |
+| 6 | Project store busy or conflicting local owner. |
+| 7 | Operation failed after a controlled rollback. |
+| 10 | Unexpected internal error with a sanitized diagnostic. |
+| 130 | Cancellation after Ctrl+C or SIGINT. |
 
 ![HuntAssist design figure 4](assets/diagrams/04_ui_wireframe.png)
 
-<p align="center"><em>Figure 4 Proposed local interface with attack-surface evidence and a reviewable hunt plan</em></p>
+<p align="center"><em>Figure 4 Supported browser GUI and Picocli interface over the same application core</em></p>
 
-The interface keeps scope visible, presents the source of every recommendation, and makes uncertainty explicit. It does not hide the underlying request and response evidence behind a conversational answer.
+Both interfaces keep scope, sources, uncertainty, and operation status visible. The production CLI remains separate from the test-only JSON runner used by KUMA.
 
 ## 5 Actors and Use Cases
 
@@ -258,7 +307,7 @@ The interface keeps scope visible, presents the source of every recommendation, 
 | Primary actor | Bug bounty hunter |
 | Goal | Establish the authorized testing boundary and restrictions for one hunt. |
 | Preconditions | The application is running and local storage is available. |
-| Trigger | The hunter selects New Program Workspace. |
+| Trigger | The hunter requests a new program workspace through the GUI or CLI. |
 
 ##### Main success scenario
 
@@ -272,7 +321,7 @@ The interface keeps scope visible, presents the source of every recommendation, 
 
 5. ProjectService saves the workspace, including its RemoteModelPolicy, and makes it active.
 
-6. The interface displays a plain-language summary of the effective scope.
+6. The selected interface returns or presents a plain-language summary of the effective scope.
 
 ##### Alternative and exception flows
 
@@ -293,7 +342,7 @@ The interface keeps scope visible, presents the source of every recommendation, 
 | Primary actor | Bug bounty hunter with a Burp export file |
 | Goal | Convert captured HTTP traffic into a structured attack-surface model. |
 | Preconditions | An active project exists and the selected file was produced from authorized testing. |
-| Trigger | The hunter selects Import Traffic and chooses a file. |
+| Trigger | The hunter requests a traffic import through the GUI or CLI and supplies a file. |
 
 ##### Main success scenario
 
@@ -315,7 +364,7 @@ The interface keeps scope visible, presents the source of every recommendation, 
 
 9. AttackSurfaceService updates endpoints, parameters, GraphQL operations, authentication observations, and summary counts.
 
-10. The interface reports imported, duplicate, invalid, quarantined, and unresolved records.
+10. The selected interface reports imported, duplicate, invalid, quarantined, and unresolved records.
 
 ##### Alternative and exception flows
 
@@ -340,7 +389,7 @@ The interface keeps scope visible, presents the source of every recommendation, 
 | Primary actor | Bug bounty hunter with a local note export |
 | Goal | Add reusable personal testing knowledge to the agent's methodology memory. |
 | Preconditions | A project is active and a supported Markdown, HTML, text, or Notion export is available. |
-| Trigger | The hunter selects Add Methodology Source. |
+| Trigger | The hunter requests a methodology import through the GUI or CLI. |
 
 ##### Main success scenario
 
@@ -358,7 +407,7 @@ The interface keeps scope visible, presents the source of every recommendation, 
 
 7. LuceneKnowledgeIndex builds a rebuildable search projection and marks the source Indexed, Index Pending, or Index Failed.
 
-8. The interface displays imported sections and sample retrieval results for hunter review.
+8. The selected interface displays or returns imported sections and sample retrieval results for hunter review.
 
 9. The hunter approves the source for planning use.
 
@@ -383,13 +432,13 @@ The interface keeps scope visible, presents the source of every recommendation, 
 | Primary actor | Bug bounty hunter |
 | Goal | Understand the observed application surface and locate untested areas. |
 | Preconditions | The active project contains at least one successful traffic import. |
-| Trigger | The hunter opens Attack Surface. |
+| Trigger | The hunter requests the attack-surface view or query through the GUI or CLI. |
 
 ##### Main success scenario
 
 1. AttackSurfaceService loads only scoped endpoints for the active project.
 
-2. The interface groups records by host, normalized path, method, content type, GraphQL operation, and authentication state.
+2. The selected interface groups or returns records by host, normalized path, method, content type, GraphQL operation, and authentication state.
 
 3. The hunter filters by parameter, response status, account, workflow, vulnerability category, or coverage status.
 
@@ -401,7 +450,7 @@ The interface keeps scope visible, presents the source of every recommendation, 
 
 ##### Alternative and exception flows
 
-- No scoped records exist: the interface directs the hunter to import traffic or correct unresolved scope rules.
+- No scoped records exist: the selected interface directs the hunter to import traffic or correct unresolved scope rules.
 
 - The original source file was removed: normalized evidence remains visible and the source-file link is marked unavailable.
 
@@ -416,7 +465,7 @@ The interface keeps scope visible, presents the source of every recommendation, 
 | Primary actor | Bug bounty hunter supported by an LLM provider |
 | Goal | Receive ranked investigation hypotheses grounded in traffic, methodology, and coverage. |
 | Preconditions | A valid project, scoped traffic, indexed methodology, configured LLM gateway, and a RemoteModelPolicy that permits the selected provider exist. |
-| Trigger | The hunter selects a host, workflow, endpoint set, or category and chooses Generate Plan. |
+| Trigger | The hunter requests a plan for a host, workflow, endpoint set, or category through the GUI or CLI. |
 
 ##### Main success scenario
 
@@ -438,7 +487,7 @@ The interface keeps scope visible, presents the source of every recommendation, 
 
 9. HuntingRepository saves the valid plan, tool trace, provider metadata, and validation result.
 
-10. The interface displays each hypothesis with rationale, prerequisites, uncertainty, evidence, and methodology citations.
+10. The selected interface presents each hypothesis with rationale, prerequisites, uncertainty, evidence, and methodology citations.
 
 ##### Alternative and exception flows
 
@@ -465,7 +514,7 @@ The interface keeps scope visible, presents the source of every recommendation, 
 | Primary actor | Bug bounty hunter supported by an LLM provider |
 | Goal | Apply the selected vulnerability module and the hunter's corresponding methodology to scoped evidence. |
 | Preconditions | The evidence is scoped, the selected module is installed, and an approved knowledge source for its category is indexed. XSS is the installed reference module in the course release. |
-| Trigger | The hunter selects an endpoint or exchange, chooses a vulnerability category, and selects Analyze. |
+| Trigger | The hunter requests analysis for an endpoint or exchange and vulnerability category through the GUI or CLI. |
 
 ##### Main success scenario
 
@@ -510,7 +559,7 @@ The interface keeps scope visible, presents the source of every recommendation, 
 | Primary actor | Bug bounty hunter |
 | Goal | Identify factual access differences that may justify manual authorization testing. |
 | Preconditions | Traffic from at least two controlled test accounts or roles is imported and labeled. |
-| Trigger | The hunter selects two profiles and chooses Compare Access. |
+| Trigger | The hunter requests a comparison of two controlled profiles through the GUI or CLI. |
 
 ##### Main success scenario
 
@@ -551,13 +600,13 @@ The interface keeps scope visible, presents the source of every recommendation, 
 | Primary actor | Bug bounty hunter |
 | Goal | Evaluate an investigation hypothesis and preserve the result of manual testing. |
 | Preconditions | At least one recommendation exists. |
-| Trigger | The hunter opens a recommendation. |
+| Trigger | The hunter requests a recommendation and its evidence through the GUI or CLI. |
 
 ##### Main success scenario
 
 1. HuntPlanningService loads the recommendation, source exchanges, methodology sections, and original tool trace.
 
-2. The interface presents sanitized evidence and clearly distinguishes observations from agent interpretation.
+2. The selected interface presents sanitized evidence and clearly distinguishes observations from agent interpretation.
 
 3. The hunter marks the TestIdea accepted, edited, dismissed, or completed.
 
@@ -573,7 +622,7 @@ The interface keeps scope visible, presents the source of every recommendation, 
 
 - Evidence has been deleted or is unavailable: the recommendation remains but is marked as missing evidence.
 
-- The methodology source has changed: the interface shows both the version used by the agent and the current version.
+- The methodology source has changed: the selected interface identifies both the version used by the agent and the current version.
 
 - A conflicting coverage result exists: the system appends history and asks which state should be current.
 
@@ -602,7 +651,7 @@ The interface keeps scope visible, presents the source of every recommendation, 
 
 5. PlanOutputValidator confirms that every cited ID exists and belongs to the active project.
 
-6. The interface displays the answer with navigable references and an option to save it as a hunt note.
+6. The selected interface presents the answer with resolvable references and an option to save it as a hunt note.
 
 ##### Alternative and exception flows
 
@@ -616,17 +665,64 @@ The interface keeps scope visible, presents the source of every recommendation, 
 
 **Postconditions.** The answer and optional saved note exist; project data and scope remain unchanged.
 
+#### UC-10 Run an Agent Workflow Through the CLI
+
+| Field | Specification |
+| --- | --- |
+| Primary actor | Bug bounty hunter |
+| Goal | Invoke a major workflow interactively or from a script and receive sanitized table or JSON output. |
+| Preconditions | The application and local configuration are available, and the requested project exists where required. Store ownership is checked when the command starts. |
+| Trigger | The hunter invokes a HuntAssist subcommand. |
+
+##### Main success scenario
+
+1. `HuntAssistLauncher` resolves the subcommand, global options, and store path without opening H2 or the evidence vault.
+
+2. The launcher acquires the exclusive store lock, then boots the Spring core in non-web mode.
+
+3. Picocli validates workflow arguments; the command creates the same request record as the equivalent GUI controller.
+
+4. The shared service enforces `ProgramScope`, `RemoteModelPolicy`, redaction, validation, persistence, and audit rules.
+
+5. The service returns a sanitized result without exposing repositories, raw evidence, or provider credentials.
+
+6. `CliOutputRenderer` writes table or versioned JSON results to stdout; progress uses stderr.
+
+7. `CliExitCodeMapper` returns the documented code; the launcher closes Spring, then releases the lock.
+
+##### Alternative and exception flows
+
+- Invalid arguments: print sanitized usage, return the argument-error category, and start no use case.
+
+- Unknown project, endpoint, or module: return not found without substituting another resource.
+
+- Scope or `RemoteModelPolicy` refusal: reject the operation and return the policy category.
+
+- Unavailable provider or index: return the dependency category and preserve deterministic results where possible.
+
+- Store already owned: return store busy without opening H2 or the evidence vault.
+
+- Ctrl+C: cancel, roll back staged changes, and return the cancellation category.
+
+- Rendering or internal failure: never emit partial JSON as success or disclose secrets in output or logs.
+
+**Postconditions.** State and audit history match the GUI result; stdout, stderr, and logs contain no secret or raw evidence.
+
 ## 6 System Architecture
 
 ### 6.1 Architectural Style
 
-HuntAssist is a modular monolith using ports and adapters. A single deployment is appropriate for a local single-user tool and avoids the operational cost of microservices. Within that process, the web layer, application services, domain objects, agent loop, ports, and adapters are separated so external technology does not control domain design.
+HuntAssist is a modular monolith using ports and adapters. A single deployment is appropriate for a local single-user tool and avoids the operational cost of microservices. Within that process, the GUI and CLI presentation adapters, application services, domain objects, agent loop, ports, and outbound adapters are separated so interface and external technology choices do not control domain design.
 
 ![HuntAssist design figure 6](assets/diagrams/06_architecture.png)
 
-<p align="center"><em>Figure 6 Layered modular monolith and replaceable outbound adapters</em></p>
+<p align="center"><em>Figure 6 Dual inbound adapters over shared services and replaceable outbound adapters</em></p>
 
-### 6.2 Deterministic and Nondeterministic Responsibilities
+### 6.2 Inbound Interface Boundary
+
+Spring MVC controllers and Picocli commands are two inbound adapters. Both translate user input into interface-neutral request records and render sanitized result records returned by application services. Neither adapter can inject repositories, `VulnerabilityModule` implementations, `LlmGateway`, `EvidenceVault`, Lucene, or network adapters. `HuntAssistLauncher` resolves the project-store path, acquires `ProjectStoreLock`, and only then starts Spring in servlet mode for `huntassist serve` or non-web mode for a one-shot command. The lock therefore protects H2 and the evidence vault before either store opens.
+
+### 6.3 Deterministic and Nondeterministic Responsibilities
 
 | Responsibility | Deterministic Java components | LLM agent |
 | --- | --- | --- |
@@ -637,7 +733,7 @@ HuntAssist is a modular monolith using ports and adapters. A single deployment i
 | Safety | Enforce scope, redact secrets, reject invalid references and unavailable actions. | Follow the tool and output contract; it cannot bypass Java safeguards. |
 | Conclusion | Store the hunter's result and coverage state. | Never confirm a vulnerability. |
 
-### 6.3 Agent Operation
+### 6.4 Agent Operation
 
 AgentLoop receives a PlanningRequest and a bounded session. It exposes only typed read-only tools, validates each tool call, limits the number of steps, and requires a structured final plan. Each tool depends on a narrow, scope-filtered query port rather than an unrestricted repository. The model never receives database credentials, repository objects, raw file paths, or a general network tool. RemoteModelPolicy is checked before context construction, and PlanOutputValidator resolves every evidence and knowledge identifier before a result is stored.
 
@@ -645,13 +741,13 @@ AgentLoop receives a PlanningRequest and a bounded session. It exposes only type
 
 <p align="center"><em>Figure 7 Agent workflow with deterministic scope, redaction, validation, and human review</em></p>
 
-### 6.4 Vulnerability Module Boundary
+### 6.5 Vulnerability Module Boundary
 
 `VulnerabilityAnalysisService` first loads only scoped endpoint, evidence, account, and coverage views. `VulnerabilityModuleRegistry` then resolves exactly one installed module by `VulnerabilityCategoryId`. The selected module receives an immutable `AnalysisContext` and returns `ModuleAnalysis`: applicability, typed observations, `EvidenceRef`s, prerequisites, and a `KnowledgeQuerySpec`. It cannot call repositories, the LLM, or the network. The service uses the returned query to retrieve methodology and delegates the combined context to the generic `HuntPlanningService`.
 
 The course release uses compile-time Spring registration rather than dynamic plug-in JAR loading. Duplicate category registrations fail at startup, an unknown category produces a controlled result, and `NOT_APPLICABLE` remains different from no module installed. `XssVulnerabilityModule` is the first implementation and composes `ReflectionAnalyzer` and `ResponseContextClassifier`. Future modules reuse the same traffic, knowledge, planning, validation, provenance, and coverage core.
 
-### 6.5 Agent Tools
+### 6.6 Agent Tools
 
 | Tool | Purpose | Deterministic checks |
 | --- | --- | --- |
@@ -661,9 +757,9 @@ The course release uses compile-time Spring registration rather than dynamic plu
 | CompareAccountObservationsTool | Return factual differences across controlled accounts or roles. | Both profiles and matched EvidenceRefs are validated. |
 | GetCoverageTool | Identify previous tests and remaining gaps. | Coverage states come from stored hunter decisions. |
 
-### 6.6 Data, Privacy, and Persistence Architecture
+### 6.7 Data Privacy and Persistence Architecture
 
-H2 stores normalized project, endpoint, knowledge, coverage, recommendation, and audit metadata. Full raw messages are stored through EvidenceVault outside ordinary logs and prompts. EvidenceRef connects normalized records to raw data without embedding secrets in every table. The local vault uses owner-only filesystem permissions, explicit project deletion and retention controls, and optional encryption at rest with keys kept outside the vault. SensitiveDataRedactor masks both request and response secrets and produces an allowlisted prompt view.
+H2 stores normalized project, endpoint, knowledge, coverage, recommendation, and audit metadata. Full raw messages are stored through `EvidenceVault` outside ordinary logs and prompts. `EvidenceRef` connects normalized records to raw data without embedding secrets in every table. The local vault uses owner-only filesystem permissions, explicit project deletion and retention controls, and optional encryption at rest with keys kept outside the vault. `SensitiveDataRedactor` masks both request and response secrets and produces an allowlisted prompt view. `ProjectStoreLock` prevents separate GUI and CLI processes from owning the same local stores at once.
 
 Traffic import cannot atomically commit H2 and files in one database transaction, so ImportSession stages evidence in a temporary project directory, validates the batch, commits H2 metadata, and then atomically finalizes the staged directory. Startup recovery detects abandoned staging directories and either completes or removes them. H2 is also the canonical knowledge store; Lucene is a disposable search projection that can be rebuilt after an Index Pending or Index Failed state.
 
@@ -693,17 +789,23 @@ The following diagrams expose the participating objects and ordered interactions
 
 <p align="center"><em>Figure 12 SD-05 Review a recommendation and update coverage</em></p>
 
+![HuntAssist design figure 13](assets/diagrams/13_sequence_cli.png)
+
+<p align="center"><em>Figure 13 SD-06 Run a supported CLI workflow</em></p>
+
 ## 8 Java Package and Class Design
 
 ### 8.1 Recommended Size
 
-The first implementation should use approximately eleven logical package families and 36 to 44 production types. The count includes classes, interfaces, Java records, and enums but excludes simple web DTOs, framework configuration, and generated migration code. The XSS subpackage is the first implementation of the vulnerability-module contract rather than a separate architecture. The main UML views show the types that determine behavior; small value records do not need to clutter the diagrams. This is enough structure to demonstrate meaningful software design without turning the project into a collection of artificial one-method classes.
+The first implementation should use approximately thirteen logical package families and 48 to 58 production types. The count includes classes, interfaces, Java records, and enums but excludes simple presentation DTOs, framework configuration, and generated migration code. The additional types make the browser and CLI boundaries explicit; they do not duplicate application or domain logic. The XSS subpackage remains the first implementation of the vulnerability-module contract rather than a separate architecture.
 
 ### 8.2 Package Responsibilities
 
 | Package | Responsibility | Representative types |
 | --- | --- | --- |
-| ca.yorku.eecs3311.huntassist.web | HTTP controllers, Thymeleaf views, DTO validation, exception mapping, and a test-only evaluation boundary. | ProjectController, ImportController, AttackSurfaceController, KnowledgeController, PlanningController, CoverageController, AgentEvaluationEndpoint |
+| presentation.web | Spring MVC controllers, Thymeleaf views, web DTO validation, and web exception mapping. Controllers depend only on application services. | ProjectController, ImportController, AttackSurfaceController, KnowledgeController, PlanningController, CoverageController |
+| presentation.cli | Supported Picocli commands, human and JSON rendering, stable exit categories, progress reporting, and interrupt handling. Commands depend only on application services. | HuntAssistCommand, ServeCommand, ProjectCommand, TrafficCommand, KnowledgeCommand, SurfaceCommand, ModuleCommand, AnalyzeCommand, PlanCommand, CoverageCommand, AskCommand, CliOutputRenderer, CliExitCodeMapper, CliProgressReporter |
+| evaluation | Test-only boundary used by the Python KUMA harness. It is separate from the supported hunter CLI. | AgentEvaluationEndpoint, EvaluationRequest, EvaluationResult |
 | application | Coordinates use cases and transaction boundaries without depending on UI or provider details. | ProjectService, TrafficImportService, AttackSurfaceService, KnowledgeIngestionService, VulnerabilityAnalysisService, AuthorizationComparisonService, HuntPlanningService, CoverageService |
 | domain.project | Project aggregate, authorization scope, program restrictions, controlled accounts, and external-processing policy. | HuntProject, ProgramScope, AssetRule, AccountProfile, RemoteModelPolicy |
 | domain.traffic | Normalized HTTP observations and provenance independent of Burp or HAR formats. | ImportSession, HttpExchange, Endpoint, ParameterObservation, EvidenceRef |
@@ -715,37 +817,53 @@ The first implementation should use approximately eleven logical package familie
 | adapter.importer and adapter.knowledge | Concrete traffic and methodology connectors selected through Strategy and Adapter patterns. | BurpXmlTrafficImporter, HarTrafficImporter, LocalDocumentKnowledgeSource, LuceneKnowledgeIndex, future NotionKnowledgeSource |
 | adapter.ai and adapter.persistence | Provider-specific LLM access, H2 repositories, migrations, and the local evidence vault. | ProviderLlmGateway, H2 repository adapters, LocalEvidenceVault |
 
+#### 8.2.1 Package Dependency Rules
+
+- `presentation.web` and `presentation.cli` may depend on application services and shared request or result records, but not on repositories, vulnerability modules, LLM gateways, Lucene, or the evidence vault.
+
+- `application` coordinates use cases and transactions through domain objects and outbound ports; provider and storage adapters remain replaceable.
+
+- `VulnerabilityModule` implementations receive immutable `AnalysisContext` values and cannot reach repositories, the LLM, or the network.
+
+- `evaluation` is test-only. Its KUMA boundary does not define the supported production CLI contract.
+
 ### 8.3 Domain Classes
 
-![HuntAssist design figure 13](assets/diagrams/12_class_domain.png)
+![HuntAssist design figure 14](assets/diagrams/12_class_domain.png)
 
-<p align="center"><em>Figure 13 UML class diagram part 1 showing the core domain model</em></p>
+<p align="center"><em>Figure 14 UML class diagram part 1 showing the core domain model</em></p>
 
 ### 8.4 Application Services
 
-![HuntAssist design figure 14](assets/diagrams/13_class_services.png)
+![HuntAssist design figure 15](assets/diagrams/13_class_services.png)
 
-<p align="center"><em>Figure 14 UML class diagram part 2 showing application-service responsibilities</em></p>
+<p align="center"><em>Figure 15 UML class diagram part 2 showing application-service responsibilities</em></p>
 
 ### 8.5 Agent Ports and Adapters
 
-![HuntAssist design figure 15](assets/diagrams/14_class_agent.png)
+![HuntAssist design figure 16](assets/diagrams/14_class_agent.png)
 
-<p align="center"><em>Figure 15 UML class diagram part 3 showing the agent core and a representative read-only tool</em></p>
+<p align="center"><em>Figure 16 UML class diagram part 3 showing the agent core and a representative read-only tool</em></p>
 
-#### 8.5 Agent Ports and Adapters Continued
+#### 8.5.1 Agent Ports and Adapters Continued
 
-![HuntAssist design figure 16](assets/diagrams/15_class_adapters.png)
+![HuntAssist design figure 17](assets/diagrams/15_class_adapters.png)
 
-<p align="center"><em>Figure 16 UML class diagram part 4 showing outbound-port realizations</em></p>
+<p align="center"><em>Figure 17 UML class diagram part 4 showing outbound-port realizations</em></p>
 
 ### 8.6 Vulnerability Module Extension Point
 
-![HuntAssist design figure 17](assets/diagrams/16_class_modules.png)
+![HuntAssist design figure 18](assets/diagrams/16_class_modules.png)
 
-<p align="center"><em>Figure 17 UML class diagram part 5 showing the category-neutral module contract and XSS reference implementation</em></p>
+<p align="center"><em>Figure 18 UML class diagram part 5 showing the category-neutral module contract and XSS reference implementation</em></p>
 
-### 8.7 Important Class Responsibilities
+### 8.7 Inbound GUI and CLI Adapters
+
+![HuntAssist design figure 19](assets/diagrams/17_class_inputs.png)
+
+<p align="center"><em>Figure 19 UML class diagram part 6 showing the shared-service GUI and CLI boundary</em></p>
+
+### 8.8 Important Class Responsibilities
 
 | Class or interface | Responsibility |
 | --- | --- |
@@ -763,6 +881,10 @@ The first implementation should use approximately eleven logical package familie
 | VulnerabilityModule | Category-neutral interface for deterministic analysis of imported evidence; implementations cannot call repositories, the LLM, or the network. |
 | ModuleAnalysis | Carries applicability, typed observations, evidence references, prerequisites, and a category-filtered KnowledgeQuerySpec. |
 | XssVulnerabilityModule | First reference implementation; composes reflection and response-context analyzers without adding XSS assumptions to the core planner. |
+| HuntAssistCommand | Picocli root command that owns shared CLI options and dispatches supported workflow subcommands. |
+| CliOutputRenderer | Renders sanitized application result records as human-readable tables or a versioned JSON envelope without exposing raw evidence. |
+| CliExitCodeMapper | Maps typed application and presentation failures to documented stable exit-code categories. |
+| ProjectStoreLock | Prevents the GUI server and standalone CLI processes from opening the same H2 database and evidence vault concurrently. |
 | HuntPlanningService | Coordinates AgentLoop, plan validation, deterministic ranking, persistence, and natural-language investigation. |
 | RemoteModelPolicy | Records whether the active program permits external AI processing and which providers are allowed. |
 | TrafficImporter | Strategy interface implemented by file-format adapters. |
@@ -778,7 +900,7 @@ The first implementation should use approximately eleven logical package familie
 | --- | --- |
 | Abstraction | HttpExchange, Endpoint, KnowledgeChunk, and TestIdea represent stable concepts independent of Burp XML, Notion, or a model provider. |
 | Encapsulation | ProgramScope owns scope evaluation; CoverageRecord owns valid state transitions; raw evidence is accessed only through EvidenceVault. |
-| Separation of concerns | Controllers handle HTTP, services coordinate use cases, domain objects hold rules, adapters handle external technology, and the LLM performs interpretation. |
+| Separation of concerns | Web controllers and CLI commands adapt user input; services coordinate use cases; domain objects hold rules; outbound adapters handle external technology; the LLM performs interpretation. |
 | High cohesion | Each service coordinates one family of use cases and each analyzer performs one deterministic analysis. |
 | Low coupling | Application and domain packages depend on ports rather than Spring Data, Lucene, Notion, Burp, or a specific LLM SDK. |
 | Dependency inversion | TrafficImporter, KnowledgeSource, KnowledgeIndex, LlmGateway, EvidenceVault, and repositories are interfaces owned by the core. |
@@ -791,7 +913,9 @@ The first implementation should use approximately eleven logical package familie
 
 ### 9.1 Important Design Decisions
 
-Local Spring Boot application. A browser interface provides searchable tables and evidence panels while preserving a Java implementation. It is easier to test and extend than a large desktop UI, and the core can later be reused by a Montoya extension.
+Local Spring Boot application with two inbound adapters. A Thymeleaf browser GUI provides searchable tables and evidence navigation. A Picocli interface supports interactive and scripted use. Both preserve a Java implementation and call the same application services, which can later be reused by a Montoya extension.
+
+Single-owner local storage. `huntassist serve` and standalone CLI commands acquire `ProjectStoreLock` before opening H2 and the evidence vault. A busy process receives a controlled exit category instead of unsafe concurrent access. If simultaneous operation becomes necessary, the CLI will become a loopback client of the running local server.
 
 Offline first course release. The agent analyzes imported evidence and recommends manual tests. Removing a live network tool keeps authorization, rate limits, and target behavior under the hunter's control while still demonstrating planning, memory, retrieval, and tool use.
 
@@ -805,7 +929,7 @@ Remote model use is a project policy decision. RemoteModelPolicy records whether
 
 Cross-store operations use recoverable projections and staging. Traffic imports stage raw files before H2 metadata commits and atomically finalize the vault afterward. H2 is canonical for knowledge; Lucene is a rebuildable projection with Indexed, Index Pending, and Index Failed states.
 
-KUMA is integrated through a test-only AgentEvaluationEndpoint or JSON command runner. The Python harness supplies a task and receives the final structured response, tool trace, validation outcome, and evidence IDs without importing Java implementation classes.
+KUMA is integrated through a test-only `AgentEvaluationEndpoint` or evaluation runner. The Python harness supplies a task and receives the final structured response, tool trace, validation outcome, and evidence IDs without importing Java implementation classes. This boundary is not the production CLI and is packaged separately from `presentation.cli`.
 
 Modular monolith. The project gains clear boundaries and replaceable adapters without the deployment and consistency problems of microservices.
 
@@ -815,14 +939,16 @@ Compile-time vulnerability modules. Spring supplies a set of `VulnerabilityModul
 
 | Feature | Main classes | Collaboration |
 | --- | --- | --- |
-| Workspace and scope | ProjectController, ProjectService, HuntProject, ProgramScope, ProjectRepository | The controller validates input; ProjectService creates the aggregate; ProgramScope owns matching rules; the repository persists it. |
-| Traffic import | ImportController, TrafficImportService, TrafficImporterRegistry, BurpXmlTrafficImporter, HttpMessageParser, SensitiveDataRedactor | The registry selects an importer by content; parsed exchanges pass through redaction and scope before transactional persistence. |
+| Dual GUI and CLI access | Web controllers, HuntAssistCommand, workflow commands, CliOutputRenderer, CliExitCodeMapper, application services | Both inbound adapters translate input into shared request records and render the same sanitized result records. All policy and business rules remain in application services. |
+| Workspace and scope | ProjectController, ProjectCommand, ProjectService, HuntProject, ProgramScope, ProjectRepository | The controller or command validates presentation input; ProjectService creates the aggregate; ProgramScope owns matching rules; the repository persists it. |
+| Traffic import | ImportController, TrafficCommand, TrafficImportService, TrafficImporterRegistry, BurpXmlTrafficImporter, HttpMessageParser, SensitiveDataRedactor | The registry selects an importer by content; parsed exchanges pass through redaction and scope before transactional persistence. |
 | Attack-surface map | AttackSurfaceService, EndpointCanonicalizer, Endpoint, TrafficRepository | Canonicalization groups exchanges into endpoints while TrafficRepository preserves every EvidenceRef. |
-| Methodology memory | KnowledgeController, KnowledgeIngestionService, KnowledgeSource, KnowledgeChunker, KnowledgeIndex, KnowledgeRepository | The service normalizes and chunks sources, then indexes section text and metadata with provenance. |
-| Hunt planning | PlanningController, HuntPlanningService, AgentLoop, ToolRegistry, LlmGateway, PlanOutputValidator, SuggestionRanker | The application service runs a bounded tool loop and saves only structured, validated plans. |
-| Modular vulnerability analysis | VulnerabilityAnalysisService, VulnerabilityModuleRegistry, VulnerabilityModule, XssVulnerabilityModule, SearchKnowledgeTool, GetCoverageTool, PlanOutputValidator | The service resolves the selected module, which derives deterministic observations and a knowledge query; the generic planner then produces validated hypotheses. XSS is the first implementation. |
+| Methodology memory | KnowledgeController, KnowledgeCommand, KnowledgeIngestionService, KnowledgeSource, KnowledgeChunker, KnowledgeIndex, KnowledgeRepository | The service normalizes and chunks sources, then indexes section text and metadata with provenance. |
+| Hunt planning | PlanningController, PlanCommand, HuntPlanningService, AgentLoop, ToolRegistry, LlmGateway, PlanOutputValidator, SuggestionRanker | The application service runs a bounded tool loop and saves only structured, validated plans. |
+| Modular vulnerability analysis | AnalyzeCommand, VulnerabilityAnalysisService, VulnerabilityModuleRegistry, VulnerabilityModule, XssVulnerabilityModule, SearchKnowledgeTool, GetCoverageTool, PlanOutputValidator | The service resolves the selected module, which derives deterministic observations and a knowledge query; the generic planner then produces validated hypotheses. XSS is the first implementation. |
 | Account comparison | AuthorizationComparisonService, RequestMatcher, ResponseComparator, CompareAccountObservationsTool | Deterministic matching produces factual differences; the agent interprets them only as hypotheses. |
-| Coverage and feedback | CoverageController, CoverageService, CoverageRecord, HuntingRepository | The service validates state transitions and preserves result history for later planning. |
+| Coverage and feedback | CoverageController, CoverageCommand, CoverageService, CoverageRecord, HuntingRepository | The service validates state transitions and preserves result history for later planning. |
+| Natural-language investigation | PlanningController, AskCommand, HuntPlanningService, AgentLoop, AgentTool implementations, PlanOutputValidator | The GUI and CLI submit the same question request; the bounded agent queries scoped project facts and returns a validated answer with resolvable references. |
 | Privacy and provenance | ProgramScope, RemoteModelPolicy, SensitiveDataRedactor, EvidenceVault, EvidenceRef, PlanOutputValidator, ToolTrace | Raw evidence stays local, project policy gates remote calls, prompts receive allowlisted fields, and every conclusion must resolve to stored sources. |
 
 ## 11 Requirements Traceability
@@ -837,12 +963,13 @@ Stable requirement and use-case identifiers begin the traceability chain require
 | FR-09 | Account comparison | UC-07 | SD-04 | AuthorizationComparisonService, RequestMatcher, ResponseComparator |
 | FR-10 to FR-12 | Hunt planning | UC-05 and UC-06 | SD-03 | AgentLoop, ToolRegistry, LlmGateway, PlanOutputValidator, SuggestionRanker |
 | FR-13 to FR-14 | Coverage and feedback | UC-08 | SD-05 | CoverageService, CoverageRecord, HuntingRepository |
-| FR-15 | Natural-language investigation | UC-09 | SD-03 tool-loop pattern | HuntPlanningService, AgentLoop, read-only AgentTool implementations |
-| FR-16 | Privacy | UC-02, UC-03, UC-05 | SD-01 to SD-03 | SensitiveDataRedactor, EvidenceVault, PlanningContextBuilder |
-| FR-17 | Audit history | UC-02, UC-03, UC-05, UC-08 | SD-01, SD-02, SD-03, SD-05 | ImportSession, AgentRun, ToolTrace, repository adapters |
-| FR-18 | Failure recovery | UC-01 to UC-09 | SD-01 to SD-05 | Application services, provider adapters, staging recovery, GlobalExceptionHandler |
-| FR-19 | Remote-model policy | UC-01, UC-05, UC-09 | SD-03 | RemoteModelPolicy, PlanningContextBuilder, LlmGateway |
-| FR-20 | Vulnerability modules | UC-06 | SD-03 | VulnerabilityAnalysisService, VulnerabilityModuleRegistry, VulnerabilityModule, XssVulnerabilityModule |
+| FR-15 | Natural-language investigation | UC-09 and UC-10 | SD-03 and SD-06 | HuntPlanningService, AskCommand, AgentLoop, read-only AgentTool implementations |
+| FR-16 | Privacy | UC-02, UC-03, UC-05, UC-10 | SD-01 to SD-03 and SD-06 | SensitiveDataRedactor, EvidenceVault, PlanningContextBuilder, CliOutputRenderer |
+| FR-17 | Audit history | UC-02, UC-03, UC-05, UC-08, UC-10 | SD-01, SD-02, SD-03, SD-05, SD-06 | ImportSession, AgentRun, ToolTrace, repository adapters |
+| FR-18 | Failure recovery | UC-01 to UC-10 | SD-01 to SD-06 | Application services, provider adapters, staging recovery, GlobalExceptionHandler, CliExitCodeMapper |
+| FR-19 | Remote-model policy | UC-01, UC-05, UC-09, UC-10 | SD-03 and SD-06 | RemoteModelPolicy, PlanningContextBuilder, LlmGateway |
+| FR-20 | Vulnerability modules | UC-06 and UC-10 | SD-03 and SD-06 | VulnerabilityAnalysisService, VulnerabilityModuleRegistry, VulnerabilityModule, XssVulnerabilityModule |
+| FR-21 | Dual GUI and CLI access | UC-10 and UC-01 to UC-09 invocation variants | SD-06 | HuntAssistCommand, workflow commands, CliOutputRenderer, CliExitCodeMapper, shared application services |
 
 ### 11.1 Planned Deterministic Test Targets
 
@@ -865,6 +992,14 @@ Stable requirement and use-case identifiers begin the traceability chain require
 - XSS reflection, response-context, MIME, and encoding classification, plus a fake second module that is added without modifying core planning code.
 
 - Coverage state transitions, repository transactions, invalid tool arguments, and structured output validation.
+
+- Picocli root and subcommand parsing, shared request mapping, and presentation-level argument validation.
+
+- GUI and CLI parity for equivalent requests, persisted state, scope decisions, redaction, remote-model policy, module selection, and plan validation.
+
+- Versioned JSON schema, escaping, stable exit-code categories, stdout and stderr separation, and non-disclosure of secrets or raw evidence.
+
+- Project-store locking, progress reporting, Ctrl+C cancellation, staged-import rollback, and unknown-module versus `NOT_APPLICABLE` behavior in both interfaces.
 
 ### 11.2 Planned KUMA Behavioral Requirements
 
@@ -908,6 +1043,10 @@ Stable requirement and use-case identifiers begin the traceability chain require
 | The design grows beyond a semester project | Medium | Implement the course release as a modular monolith; defer live Notion sync, Montoya integration, and active replay behind existing ports. |
 | XSS-specific assumptions leak into the core module contract | Medium | Use category-neutral AnalysisContext and ModuleAnalysis types; prohibit modules from direct repository, LLM, or network access; run common contract tests against every module. |
 | An unsupported module creates false confidence | Medium | Show installed-module coverage explicitly and distinguish no module installed from a module that found no applicable signal. |
+| A CLI command bypasses GUI safeguards | High | Commands call application services only; parity and contract tests verify identical scope, policy, redaction, validation, persistence, and audit behavior. |
+| Secrets or raw evidence appear in shell history or output | High | Never accept provider keys as arguments; render sanitized result records; keep raw evidence hidden by default; test stdout, stderr, and logs. |
+| GUI and CLI processes contend for H2 or evidence storage | Medium | Require one owning process per project store, return a controlled store-busy exit category, and defer simultaneous client-server mode. |
+| Automation scripts break when CLI output changes | Medium | Version the JSON envelope and document stable exit-code categories for the course release. |
 
 ## 13 Planned Implementation Structure
 
@@ -917,7 +1056,7 @@ Stable requirement and use-case identifiers begin the traceability chain require
 | --- | --- | --- |
 | Language and build | Java 21 and Maven | Java 21 is a stable course target and preserves compatibility with a future Burp Montoya extension. |
 | Application framework | Spring Boot 4.x | Provides dependency injection, local web hosting, validation, transactions, and test support. |
-| Interface | Spring MVC and Thymeleaf | Keeps the front end small and the use-case code in Java. |
+| Interfaces | Spring MVC and Thymeleaf plus Picocli | Provides a browser GUI and supported Java CLI over the same application services. |
 | Metadata storage | H2 file database with Flyway | Portable local persistence and explicit schema evolution. |
 | Raw evidence | Local EvidenceVault with staged imports | Separates full messages from prompts and logs; supports owner-only permissions, retention, deletion, optional encryption, and startup recovery. |
 | Traffic parsing | StAX, Jackson, and deterministic HTTP parsing | Supports streaming Burp XML and HAR without loading the entire capture into memory. |
@@ -929,7 +1068,7 @@ Stable requirement and use-case identifiers begin the traceability chain require
 
 ### 13.2 Implementation Order
 
-1. Create the domain model, ProgramScope, repositories, and project interface.
+1. Create the domain model, ProgramScope, repositories, ProjectStoreLock, and interface-neutral application request and result records.
 
 2. Implement content detection, hardened Burp XML import, HTTP parsing, redaction, and the evidence vault.
 
@@ -945,13 +1084,17 @@ Stable requirement and use-case identifiers begin the traceability chain require
 
 8. Implement the bounded agent loop, generic read-only tools, provider adapter, validator, and ranking.
 
-9. Connect the interface, add audit views, complete deterministic tests, define KUMA requirements, analyze failures, improve the system, and retest.
+9. Implement Spring MVC controllers and Thymeleaf views over the shared application services.
 
-MVP fallback. If schedule pressure appears, the graded end-to-end slice remains: program scope, hardened Burp XML import, evidence storage, attack-surface browsing, local methodology import, the generic vulnerability-module contract, the XSS reference module, bounded planning, validation, and coverage. HAR import, GraphQL-specific enrichment, account comparison, direct Notion synchronization, and additional vulnerability modules remain priority-two work.
+10. Implement the Picocli root, workflow subcommands, output renderer, exit mapper, progress reporter, cancellation handling, and GUI-CLI parity tests.
+
+11. Add audit views, complete deterministic tests, define KUMA requirements, analyze failures, improve the system, and retest.
+
+MVP fallback. The mandatory end-to-end slice retains both the browser GUI and supported CLI. It includes program scope, hardened Burp XML import, evidence storage, attack-surface browsing, local methodology import, the generic vulnerability-module contract, the XSS reference module, bounded planning, validation, and coverage. HAR import, GraphQL-specific enrichment, account comparison, direct Notion synchronization, simultaneous GUI-CLI operation, and additional vulnerability modules remain priority-two work.
 
 ### 13.3 Planned Extensions
 
-NotionKnowledgeSource will synchronize changed pages through the same KnowledgeSource port. A Montoya-based Burp extension will later contribute selected requests through TrafficImporter or a dedicated ingestion port. New access-control and IDOR, SQL injection, SSRF, authentication and session, CSRF, file-upload, GraphQL, business-logic, and race-condition modules will implement VulnerabilityModule. Each may add category-specific deterministic analyzers but will reuse traffic, knowledge, scope, planning, validation, provenance, and coverage infrastructure.
+NotionKnowledgeSource will synchronize changed pages through the same KnowledgeSource port. A Montoya-based Burp extension will later contribute selected requests through TrafficImporter or a dedicated ingestion port. A later CLI client mode may connect to the running loopback server for simultaneous use. New access-control and IDOR, SQL injection, SSRF, authentication and session, CSRF, file-upload, GraphQL, business-logic, and race-condition modules will implement VulnerabilityModule and reuse shared traffic, knowledge, scope, planning, validation, provenance, and coverage infrastructure.
 
 ## 14 Stage 1 Completion Checklist
 
@@ -959,10 +1102,11 @@ NotionKnowledgeSource will synchronize changed pages through the same KnowledgeS
 | --- | --- | --- |
 | Project description and scope | Sections 1 and 3 | Complete |
 | Major features | Section 2.3 | Complete |
-| Use cases | Section 5.2 | Nine complete specifications |
+| Use cases | Section 5.2 | Ten complete specifications including CLI operation |
 | UML use case diagram | Figure 5 | Complete |
-| Sequence diagrams | Figures 8 through 12 | Five major flows with alternatives |
-| UML class diagram | Figures 13 through 17 | Five readable views of one logical design |
+| Sequence diagrams | Figures 8 through 13 | Six major flows with alternatives |
+| UML class diagram | Figures 14 through 19 | Six readable views of one logical design |
+| GUI and CLI requirements | Sections 2, 4, 6, 8, 10, and 11 | Architecture and traceability complete |
 | Feature to class mapping | Section 10 | Complete |
 | Important design decisions | Section 9.1 | Complete |
 | Software design principles | Section 9 | Complete |
@@ -990,6 +1134,10 @@ NotionKnowledgeSource will synchronize changed pages through the same KnowledgeS
 
 [10] Personal methodology source. Payloads XSS Notion page supplied by the project author. https://app.notion.com/p/bb1854cd09d34eb395dd958bcafb7b3f
 
+[11] EECS 3311 Software Design. Stage 2 AI Human Collaborative Implementation. Course instruction supplied for Fall 2026.
+
+[12] Picocli. Picocli user guide. https://picocli.info/
+
 ## Glossary
 
 | Term | Meaning in this design |
@@ -1005,3 +1153,7 @@ NotionKnowledgeSource will synchronize changed pages through the same KnowledgeS
 | Vulnerability module | A category-specific deterministic analyzer that converts immutable scoped evidence into ModuleAnalysis through a shared interface. |
 | ModuleAnalysis | A category-neutral result containing applicability, observed signals, EvidenceRefs, prerequisites, and a knowledge query; it is not a finding. |
 | Reference module | The first complete implementation used to validate the shared contract. XSS is the course-release reference module, not the platform boundary. |
+| CLI | The supported Picocli command-line interface through which the hunter invokes major HuntAssist workflows interactively or from scripts. |
+| Inbound adapter | A GUI controller or CLI command that translates user input into shared application requests and renders sanitized application results. |
+| Exit-code category | A documented stable CLI result category such as success, invalid arguments, policy refusal, dependency unavailable, store busy, or cancellation. |
+| Interface parity | The requirement that equivalent GUI and CLI operations use the same application services and enforce the same safety and persistence rules. |
