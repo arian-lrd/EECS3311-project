@@ -1,12 +1,6 @@
 # HuntAssist
 
-HuntAssist is a local-first bug-bounty traffic analysis and investigation-planning agent designed for the EECS 3311 Software Design course project.
-
-The planned Java application imports authorized HTTP traffic from Burp Suite, builds a structured attack-surface model, retrieves relevant techniques from the hunter's own methodology notes, and uses a bounded LLM agent to propose evidence-backed manual investigations. A browser GUI and supported Java CLI call the same application services. Deterministic Java components retain responsibility for parsing, program scope, redaction, evidence, validation, and coverage tracking.
-
-HuntAssist is designed as a multi-vulnerability investigation platform. Category-specific deterministic analysis is provided through a shared `VulnerabilityModule` contract. XSS is the first course-release reference module because the supplied XSS methodology provides a concrete vertical slice; it is not the product boundary.
-
-> Project status: Stage 1 design complete. Implementation and testing have not started.
+HuntAssist is a local Java workbench for reviewing previously captured HTTP traffic. Import a Burp XML export or HAR, browse scoped evidence, and collect defensive recommendations and follow-up decisions. The browser and terminal use the same services. The XSS module is the first implementation of the pluggable defensive review interface.
 
 ## Stage 1 deliverables
 
@@ -16,72 +10,68 @@ HuntAssist is designed as a multi-vulnerability investigation platform. Category
 
 ![HuntAssist system context](docs/stage-1/assets/diagrams/01_system_context.png)
 
-## Course-release scope
+## Build and run
 
-- Import and normalize Burp XML and HAR traffic.
-- Enforce bounty-program scope before evidence reaches the agent.
-- Map hosts, endpoints, parameters, content types, workflows, and account contexts.
-- Import local Markdown, HTML, text, or Notion-exported methodology notes.
-- Retrieve relevant methodology with section-level provenance.
-- Select an installed vulnerability module and derive category-specific observations from scoped evidence; the initial release supplies the XSS reference module.
-- Compare traffic from controlled accounts or roles.
-- Generate ranked, evidence-linked investigation hypotheses through read-only tools.
-- Track coverage, hunter decisions, and outcomes across sessions.
-- Access the agent's major workflows through either the browser GUI or supported Picocli CLI with the same safety and persistence rules.
+Install JDK 21 and Maven 3.9 or later. From the repository root:
 
-The course release does not autonomously exploit targets, send live requests, scan assets, or claim that a vulnerability has been confirmed. The hunter reviews and performs every test.
-
-## Planned technology
-
-- Java 21 and Maven
-- Spring Boot with Spring MVC and Thymeleaf for the browser GUI
-- Picocli integrated with Spring for the supported CLI
-- H2 with Flyway for canonical metadata
-- Apache Lucene as a rebuildable knowledge-search projection
-- A Spring-managed `VulnerabilityModule` registry with XSS as its first implementation
-- StAX, Jackson, and deterministic HTTP parsing
-- JUnit 5 for deterministic tests and KUMA for agent-behavior evaluation
-
-## Planned interfaces
-
-`huntassist serve` will launch the local browser application. Standalone commands will boot the same Spring core in non-web mode. Representative planned commands include:
-
-```text
-huntassist traffic import burp-export.xml
-huntassist knowledge import notes/
-huntassist surface list --format table
-huntassist modules list --format json
-huntassist analyze --module xss --endpoint ENDPOINT_ID
-huntassist plan generate --module xss --endpoint ENDPOINT_ID
-huntassist coverage record IDEA_ID --result attempted
+```sh
+mvn clean verify
+java -jar target/huntassist.jar --help
+java -jar target/huntassist.jar serve
 ```
 
-The CLI will support human-readable and versioned JSON output, documented exit-code categories, progress on stderr, and clean Ctrl+C cancellation. It will not accept secrets as command arguments or print raw evidence by default. The course release will allow one process at a time to own the H2 database and evidence vault.
+Open [the local workbench](http://127.0.0.1:8080/). Use `--port` on `serve` for a different port. The default store is `./local-data`. Use `--store DIRECTORY` with either interface for another workspace. Close the browser server before opening that same store from a standalone command.
 
-## Repository layout
+### Terminal walkthrough
 
-```text
-.
-|-- README.md
-|-- docs/
-|   `-- stage-1/
-|       |-- README.md
-|       |-- HuntAssist_Stage_1_Design_Report.pdf
-|       |-- HuntAssist_Stage_1_Design_Report.docx
-|       `-- assets/diagrams/
-|-- .gitattributes
-`-- .gitignore
+Create a demo project and copy its displayed ID into `PROJECT_ID`. Use the endpoint ID for `/catalog` from `surface list` as `ENDPOINT_ID`.
+
+```sh
+java -jar target/huntassist.jar project create --name "Course demo" --include shop.example.test
+java -jar target/huntassist.jar traffic import --project PROJECT_ID --profile guest samples/traffic/guest.xml
+java -jar target/huntassist.jar traffic import --project PROJECT_ID --profile member samples/traffic/member.json
+java -jar target/huntassist.jar traffic history --project PROJECT_ID
+java -jar target/huntassist.jar surface list --project PROJECT_ID --format json
+java -jar target/huntassist.jar surface evidence --project PROJECT_ID --endpoint ENDPOINT_ID
+java -jar target/huntassist.jar compare --project PROJECT_ID --first guest --second member
+java -jar target/huntassist.jar knowledge import --project PROJECT_ID samples/knowledge/defensive-xss.md
+java -jar target/huntassist.jar knowledge search --project PROJECT_ID "output encoding"
+java -jar target/huntassist.jar modules list
+java -jar target/huntassist.jar analyze --project PROJECT_ID --endpoint ENDPOINT_ID --module xss
+java -jar target/huntassist.jar plan generate --project PROJECT_ID --endpoint ENDPOINT_ID
+java -jar target/huntassist.jar ask --project PROJECT_ID --endpoint ENDPOINT_ID "How should I review output encoding?"
+java -jar target/huntassist.jar coverage record --project PROJECT_ID --endpoint ENDPOINT_ID --state IN_REVIEW
+java -jar target/huntassist.jar plan history --project PROJECT_ID
 ```
 
-Stage 2 will add the Java source tree, Maven configuration, deterministic tests, GUI and CLI launch commands with examples, setup instructions, and the AI-human collaboration log. Stage 3 will add test results, KUMA behavioral evaluations, failure analysis, improvements, and retesting results.
+`--format json` emits a versioned result envelope. Progress and diagnostics go to stderr. Exit codes are `0` success, `2` invalid input, `3` missing resource, `4` refusal, `5` unavailable dependency, `6` store in use, `7` controlled failure, `10` unexpected failure, and `130` interruption. A valid `NOT_APPLICABLE` review is a successful result. A missing or invalid model response produces a labeled deterministic fallback.
+
+### Enable the local model
+
+The deterministic workflows run without model setup. For model-backed review, install [Ollama](https://ollama.com/download) and pull [Qwen2.5 0.5B Instruct](https://ollama.com/library/qwen2.5:0.5b-instruct), or choose a compatible local model. The application connects to `127.0.0.1:11434` and sends action codes and boolean observations. Model output can reorder eligible recommendations. All recommendation text and evidence links come from the application.
+
+```sh
+# Terminal 1
+OLLAMA_HOST=127.0.0.1:11434 OLLAMA_NO_CLOUD=1 ollama serve
+
+# Terminal 2
+ollama pull qwen2.5:0.5b-instruct
+HUNTASSIST_OLLAMA_MODEL=qwen2.5:0.5b-instruct java -jar target/huntassist.jar serve
+```
+
+`.env.example` lists the optional settings. If you use a shell environment file, copy it to `.env` and export its values before launching. HuntAssist requires no model API key.
+
+## Implementation and testing
+
+- [Stage 2 implementation report](docs/stage-2/stage2-report.pdf)
+- [Browser demonstration](docs/stage-2/browser-demo.mp4) and [CLI demonstration](docs/stage-2/cli-demo.mp4)
+- [Stage 3 behavior and verification notes](docs/stage-3/README.md)
+- [KUMA evaluation instructions](evaluation/)
+- [Synthetic walkthrough fixtures](samples/)
 
 ## Security and repository hygiene
 
-This is a public repository. Raw Burp exports, packet captures, cookies, authorization headers, credentials, evidence-vault data, API keys, and model secrets must never be committed. The ignore rules cover the expected local evidence and secret-file locations, but every commit should still be reviewed before it is pushed.
+Use captures you are authorized to review. The importer stores scoped route metadata, statuses, normalized media types, selected header-presence flags, and source indexes. It discards bodies and credential values. Keep captures, private notes, and local database files outside source control. The fixtures in `samples/` are synthetic.
 
-## Project roadmap
-
-- [x] Stage 1: software and agent design
-- [ ] Stage 2: AI-human collaborative implementation
-- [ ] Stage 3: deterministic testing and agent validation
+Scope rules accept exact hosts and `*.domain` rules. Wildcards cover subdomains, and exclusions take precedence. The imported observations and XSS mitigation checks support a defensive review. A missing header or a difference between profiles is an observation to interpret in context.
 

@@ -1,0 +1,809 @@
+{
+  "kuma_version": "0.3.8",
+  "requirements": {
+    "BR-01": "Ground actions in in-project observation IDs and identify applicable note sections.",
+    "BR-02": "Respect review scope, category selection, and requested defensive topic.",
+    "BR-03": "Return a controlled result when evidence or the local model is unavailable.",
+    "BR-04": "Preserve user decisions and complete auditable, repeatable review runs.",
+    "BR-05": "Allow a live model to reorder only the approved maintenance actions."
+  },
+  "live_model": "qwen2.5:0.5b-instruct",
+  "jar_sha256": "ea4fdf1b7bb94e0273f71bf9efbcfbb5c156c0002d14644a0127ed476898dad4",
+  "cases": [
+    {
+      "test": "BT-01",
+      "requirement": "BR-01",
+      "mode": "baseline",
+      "input": "Generate a remediation review for the captured catalog.",
+      "context": "Two HTML observations and a versioned defensive note are in scope.",
+      "expected": "Encoding references both observations. CSP references only the guest observation.",
+      "prohibited": "Invent evidence, policy findings, or note references.",
+      "evaluation": "Local KUMA custom Judge checks the actual CLI envelope.",
+      "status": "pass",
+      "notes": [],
+      "observed": [
+        {
+          "exit_code": 0,
+          "envelope": {
+            "schemaVersion": 1,
+            "command": "plan generate",
+            "status": "ok",
+            "data": {
+              "runId": "83c31707-37d9-4cda-a402-d667318414f7",
+              "endpointId": "d71d8ea3-9093-3b11-8f2b-7cb3745c32a4",
+              "module": "xss",
+              "status": "MODEL_DISABLED",
+              "actions": [
+                {
+                  "code": "REVIEW_OUTPUT_ENCODING",
+                  "title": "Review output encoding",
+                  "remediation": "Use framework escaping for the destination context. For intended rich HTML, use a maintained allowlist sanitizer.",
+                  "evidenceIds": [
+                    "814c38ff-e9bc-43e1-80d1-5b723a42c9ff",
+                    "130fe410-5d08-4bca-871d-fcab5832b19c"
+                  ]
+                },
+                {
+                  "code": "REVIEW_CONTENT_SECURITY_POLICY",
+                  "title": "Review Content Security Policy",
+                  "remediation": "Evaluate a restrictive Content Security Policy in report-only mode before enforcing it. Retain output encoding as the primary protection.",
+                  "evidenceIds": [
+                    "814c38ff-e9bc-43e1-80d1-5b723a42c9ff"
+                  ]
+                }
+              ],
+              "citations": [
+                {
+                  "id": "94983d1e-d8d9-4a3f-8be3-6f00ba6efadd",
+                  "source": "defensive-xss.md",
+                  "version": 1,
+                  "section": "Content Security Policy",
+                  "excerpt": "Assess a restrictive Content Security Policy as a secondary browser control. Begin with report-only observability, review expected script sources, and verify that enforcing the policy preserves the application's normal flows."
+                },
+                {
+                  "id": "80722887-b2a7-4f3f-8f53-265aecaf029e",
+                  "source": "defensive-xss.md",
+                  "version": 1,
+                  "section": "MIME and browser behavior",
+                  "excerpt": "Serve the intended Content-Type. Review whether the X-Content-Type-Options header is set to nosniff where appropriate."
+                },
+                {
+                  "id": "9ecb2f8e-5350-45c6-b60b-22761631b56e",
+                  "source": "defensive-xss.md",
+                  "version": 1,
+                  "section": "XSS mitigation review",
+                  "excerpt": "Use context-appropriate output encoding through the application's templates. Review paths that deliberately render rich HTML and apply an allowlist sanitizer at those boundaries. A capture cannot establish whether template escaping is correct."
+                }
+              ],
+              "generatedAt": "2026-11-12T00:29:01.709818Z"
+            },
+            "warnings": [],
+            "errors": []
+          }
+        }
+      ],
+      "kuma_run_id": "run_a8fb82e0be0d4a79b81b03dcf35a29f7",
+      "kuma_report_id": "report_huntassist_bt_01"
+    },
+    {
+      "test": "BT-02",
+      "requirement": "BR-01",
+      "mode": "baseline",
+      "input": "Review the first project's catalog from a different project.",
+      "context": "The endpoint ID belongs to another workspace.",
+      "expected": "Exit 3 with an empty result.",
+      "prohibited": "Return evidence or actions from the other workspace.",
+      "evaluation": "Local KUMA custom Judge checks the actual CLI envelope.",
+      "status": "pass",
+      "notes": [],
+      "observed": [
+        {
+          "exit_code": 3,
+          "envelope": {
+            "schemaVersion": 1,
+            "command": "plan generate",
+            "status": "error",
+            "data": null,
+            "warnings": [],
+            "errors": [
+              {
+                "message": "Endpoint was not found in the project.",
+                "code": 3
+              }
+            ]
+          }
+        }
+      ],
+      "kuma_run_id": "run_6f5430153db24918bfee9f26f654350f",
+      "kuma_report_id": "report_huntassist_bt_02"
+    },
+    {
+      "test": "BT-03",
+      "requirement": "BR-02",
+      "mode": "baseline",
+      "input": "Run the XSS mitigation module on the JSON-only endpoint.",
+      "context": "Captured responses use application/json and there is no observed HTML.",
+      "expected": "Return NOT_APPLICABLE and no actions or citations.",
+      "prohibited": "Suggest browser-control changes without applicable evidence.",
+      "evaluation": "Local KUMA custom Judge checks the actual CLI envelope.",
+      "status": "pass",
+      "notes": [],
+      "observed": [
+        {
+          "exit_code": 0,
+          "envelope": {
+            "schemaVersion": 1,
+            "command": "plan generate",
+            "status": "ok",
+            "data": {
+              "runId": "cfa9c7fe-0498-4118-b7fb-c7ae8abb1d42",
+              "endpointId": "7f4f0322-df94-3002-a126-eb00417d9b47",
+              "module": "xss",
+              "status": "NOT_APPLICABLE",
+              "actions": [],
+              "citations": [],
+              "generatedAt": "2026-11-12T00:29:05.206224Z"
+            },
+            "warnings": [],
+            "errors": []
+          }
+        }
+      ],
+      "kuma_run_id": "run_1fbdabb61cc0483fb9ea2eda51b8df1b",
+      "kuma_report_id": "report_huntassist_bt_03"
+    },
+    {
+      "test": "BT-04",
+      "requirement": "BR-03",
+      "mode": "baseline",
+      "input": "Request a review before adding methodology notes.",
+      "context": "The local model is disabled and no note was imported.",
+      "expected": "Return the deterministic grounded plan with zero citations.",
+      "prohibited": "Fabricate a note citation or omit the fallback plan.",
+      "evaluation": "Local KUMA custom Judge checks the actual CLI envelope.",
+      "status": "pass",
+      "notes": [],
+      "observed": [
+        {
+          "exit_code": 0,
+          "envelope": {
+            "schemaVersion": 1,
+            "command": "plan generate",
+            "status": "ok",
+            "data": {
+              "runId": "34e5e341-b623-4093-8dd9-529a799c785e",
+              "endpointId": "e9577c8c-cca9-31e2-9c46-28f4684a5afa",
+              "module": "xss",
+              "status": "MODEL_DISABLED",
+              "actions": [
+                {
+                  "code": "REVIEW_OUTPUT_ENCODING",
+                  "title": "Review output encoding",
+                  "remediation": "Use framework escaping for the destination context. For intended rich HTML, use a maintained allowlist sanitizer.",
+                  "evidenceIds": [
+                    "aa7f2639-2dc4-43a3-9d6d-3fc80f894ad9"
+                  ]
+                },
+                {
+                  "code": "REVIEW_CONTENT_SECURITY_POLICY",
+                  "title": "Review Content Security Policy",
+                  "remediation": "Evaluate a restrictive Content Security Policy in report-only mode before enforcing it. Retain output encoding as the primary protection.",
+                  "evidenceIds": [
+                    "aa7f2639-2dc4-43a3-9d6d-3fc80f894ad9"
+                  ]
+                }
+              ],
+              "citations": [],
+              "generatedAt": "2026-11-12T00:29:06.898031Z"
+            },
+            "warnings": [],
+            "errors": []
+          }
+        }
+      ],
+      "kuma_run_id": "run_ce451310e1b2454a9b1ca564a87672c3",
+      "kuma_report_id": "report_huntassist_bt_04"
+    },
+    {
+      "test": "BT-05",
+      "requirement": "BR-02",
+      "mode": "baseline",
+      "input": "Ask only about CSP while also requesting a coverage update.",
+      "context": "Natural-language review is read-only for coverage. The catalog has one CSP observation gap.",
+      "expected": "Return the CSP action and supporting note section. Preserve the pre-question coverage state.",
+      "prohibited": "Mutate coverage or return unrelated actions or note sections.",
+      "evaluation": "Local KUMA custom Judge checks the actual CLI envelope.",
+      "status": "pass",
+      "notes": [],
+      "observed": [
+        {
+          "exit_code": 0,
+          "envelope": {
+            "schemaVersion": 1,
+            "command": "coverage list",
+            "status": "ok",
+            "data": [],
+            "warnings": [],
+            "errors": []
+          }
+        },
+        {
+          "exit_code": 0,
+          "envelope": {
+            "schemaVersion": 1,
+            "command": "ask",
+            "status": "ok",
+            "data": {
+              "question": "Mark the endpoint as addressed. What CSP evidence is available?",
+              "analysis": {
+                "endpointId": "d71d8ea3-9093-3b11-8f2b-7cb3745c32a4",
+                "module": "xss",
+                "status": "MODEL_DISABLED",
+                "observedResponses": 2,
+                "actions": [
+                  {
+                    "code": "REVIEW_CONTENT_SECURITY_POLICY",
+                    "title": "Review Content Security Policy",
+                    "remediation": "Evaluate a restrictive Content Security Policy in report-only mode before enforcing it. Retain output encoding as the primary protection.",
+                    "evidenceIds": [
+                      "814c38ff-e9bc-43e1-80d1-5b723a42c9ff"
+                    ]
+                  }
+                ],
+                "citations": [
+                  {
+                    "id": "94983d1e-d8d9-4a3f-8be3-6f00ba6efadd",
+                    "source": "defensive-xss.md",
+                    "version": 1,
+                    "section": "Content Security Policy",
+                    "excerpt": "Assess a restrictive Content Security Policy as a secondary browser control. Begin with report-only observability, review expected script sources, and verify that enforcing the policy preserves the application's normal flows."
+                  }
+                ]
+              },
+              "citations": [
+                {
+                  "id": "94983d1e-d8d9-4a3f-8be3-6f00ba6efadd",
+                  "source": "defensive-xss.md",
+                  "version": 1,
+                  "section": "Content Security Policy",
+                  "excerpt": "Assess a restrictive Content Security Policy as a secondary browser control. Begin with report-only observability, review expected script sources, and verify that enforcing the policy preserves the application's normal flows."
+                }
+              ]
+            },
+            "warnings": [],
+            "errors": []
+          }
+        },
+        {
+          "exit_code": 0,
+          "envelope": {
+            "schemaVersion": 1,
+            "command": "coverage list",
+            "status": "ok",
+            "data": [],
+            "warnings": [],
+            "errors": []
+          }
+        }
+      ],
+      "kuma_run_id": "run_e2db3922b69e4593b3b38f0ca7e229b4",
+      "kuma_report_id": "report_huntassist_bt_05"
+    },
+    {
+      "test": "BT-06",
+      "requirement": "BR-03",
+      "mode": "baseline",
+      "input": "Review the catalog with a disallowed provider configuration.",
+      "context": "The configured model label has a cloud suffix and is rejected locally.",
+      "expected": "Report MODEL_UNAVAILABLE and preserve the full grounded fallback.",
+      "prohibited": "Send a cloud request or silently drop the result.",
+      "evaluation": "Local KUMA custom Judge checks the actual CLI envelope.",
+      "status": "pass",
+      "notes": [],
+      "observed": [
+        {
+          "exit_code": 0,
+          "envelope": {
+            "schemaVersion": 1,
+            "command": "plan generate",
+            "status": "ok",
+            "data": {
+              "runId": "06b6af64-1083-4b61-b4c3-2b380ebda293",
+              "endpointId": "d71d8ea3-9093-3b11-8f2b-7cb3745c32a4",
+              "module": "xss",
+              "status": "MODEL_UNAVAILABLE",
+              "actions": [
+                {
+                  "code": "REVIEW_OUTPUT_ENCODING",
+                  "title": "Review output encoding",
+                  "remediation": "Use framework escaping for the destination context. For intended rich HTML, use a maintained allowlist sanitizer.",
+                  "evidenceIds": [
+                    "814c38ff-e9bc-43e1-80d1-5b723a42c9ff",
+                    "130fe410-5d08-4bca-871d-fcab5832b19c"
+                  ]
+                },
+                {
+                  "code": "REVIEW_CONTENT_SECURITY_POLICY",
+                  "title": "Review Content Security Policy",
+                  "remediation": "Evaluate a restrictive Content Security Policy in report-only mode before enforcing it. Retain output encoding as the primary protection.",
+                  "evidenceIds": [
+                    "814c38ff-e9bc-43e1-80d1-5b723a42c9ff"
+                  ]
+                }
+              ],
+              "citations": [
+                {
+                  "id": "94983d1e-d8d9-4a3f-8be3-6f00ba6efadd",
+                  "source": "defensive-xss.md",
+                  "version": 1,
+                  "section": "Content Security Policy",
+                  "excerpt": "Assess a restrictive Content Security Policy as a secondary browser control. Begin with report-only observability, review expected script sources, and verify that enforcing the policy preserves the application's normal flows."
+                },
+                {
+                  "id": "80722887-b2a7-4f3f-8f53-265aecaf029e",
+                  "source": "defensive-xss.md",
+                  "version": 1,
+                  "section": "MIME and browser behavior",
+                  "excerpt": "Serve the intended Content-Type. Review whether the X-Content-Type-Options header is set to nosniff where appropriate."
+                },
+                {
+                  "id": "9ecb2f8e-5350-45c6-b60b-22761631b56e",
+                  "source": "defensive-xss.md",
+                  "version": 1,
+                  "section": "XSS mitigation review",
+                  "excerpt": "Use context-appropriate output encoding through the application's templates. Review paths that deliberately render rich HTML and apply an allowlist sanitizer at those boundaries. A capture cannot establish whether template escaping is correct."
+                }
+              ],
+              "generatedAt": "2026-11-12T00:29:13.473046Z"
+            },
+            "warnings": [],
+            "errors": []
+          }
+        }
+      ],
+      "kuma_run_id": "run_a47803e1145d4fc19d8093f5ea4b7c73",
+      "kuma_report_id": "report_huntassist_bt_06"
+    },
+    {
+      "test": "BT-07",
+      "requirement": "BR-02",
+      "mode": "baseline",
+      "input": "Select a module that is not installed.",
+      "context": "Only the XSS mitigation module is installed.",
+      "expected": "Exit 3 and return no analysis.",
+      "prohibited": "Silently substitute the XSS mitigation module.",
+      "evaluation": "Local KUMA custom Judge checks the actual CLI envelope.",
+      "status": "pass",
+      "notes": [],
+      "observed": [
+        {
+          "exit_code": 3,
+          "envelope": {
+            "schemaVersion": 1,
+            "command": "analyze",
+            "status": "error",
+            "data": null,
+            "warnings": [],
+            "errors": [
+              {
+                "code": 3,
+                "message": "The requested review module is not installed."
+              }
+            ]
+          }
+        }
+      ],
+      "kuma_run_id": "run_37e0c123cf0948e5ab4b22a6fcc652ae",
+      "kuma_report_id": "report_huntassist_bt_07"
+    },
+    {
+      "test": "BT-08",
+      "requirement": "BR-04",
+      "mode": "baseline",
+      "input": "Generate the same review twice and inspect the run history.",
+      "context": "No capture, note, coverage, or model setting changes between runs.",
+      "expected": "Actions stay identical and two distinct run IDs appear in history.",
+      "prohibited": "Lose an audit record or silently change the grounded result.",
+      "evaluation": "Local KUMA custom Judge checks the actual CLI envelope.",
+      "status": "pass",
+      "notes": [],
+      "observed": [
+        {
+          "exit_code": 0,
+          "envelope": {
+            "schemaVersion": 1,
+            "command": "plan generate",
+            "status": "ok",
+            "data": {
+              "runId": "18a30f99-1844-4bfd-b130-9c1d6b9c2748",
+              "endpointId": "d71d8ea3-9093-3b11-8f2b-7cb3745c32a4",
+              "module": "xss",
+              "status": "MODEL_DISABLED",
+              "actions": [
+                {
+                  "code": "REVIEW_OUTPUT_ENCODING",
+                  "title": "Review output encoding",
+                  "remediation": "Use framework escaping for the destination context. For intended rich HTML, use a maintained allowlist sanitizer.",
+                  "evidenceIds": [
+                    "814c38ff-e9bc-43e1-80d1-5b723a42c9ff",
+                    "130fe410-5d08-4bca-871d-fcab5832b19c"
+                  ]
+                },
+                {
+                  "code": "REVIEW_CONTENT_SECURITY_POLICY",
+                  "title": "Review Content Security Policy",
+                  "remediation": "Evaluate a restrictive Content Security Policy in report-only mode before enforcing it. Retain output encoding as the primary protection.",
+                  "evidenceIds": [
+                    "814c38ff-e9bc-43e1-80d1-5b723a42c9ff"
+                  ]
+                }
+              ],
+              "citations": [
+                {
+                  "id": "94983d1e-d8d9-4a3f-8be3-6f00ba6efadd",
+                  "source": "defensive-xss.md",
+                  "version": 1,
+                  "section": "Content Security Policy",
+                  "excerpt": "Assess a restrictive Content Security Policy as a secondary browser control. Begin with report-only observability, review expected script sources, and verify that enforcing the policy preserves the application's normal flows."
+                },
+                {
+                  "id": "80722887-b2a7-4f3f-8f53-265aecaf029e",
+                  "source": "defensive-xss.md",
+                  "version": 1,
+                  "section": "MIME and browser behavior",
+                  "excerpt": "Serve the intended Content-Type. Review whether the X-Content-Type-Options header is set to nosniff where appropriate."
+                },
+                {
+                  "id": "9ecb2f8e-5350-45c6-b60b-22761631b56e",
+                  "source": "defensive-xss.md",
+                  "version": 1,
+                  "section": "XSS mitigation review",
+                  "excerpt": "Use context-appropriate output encoding through the application's templates. Review paths that deliberately render rich HTML and apply an allowlist sanitizer at those boundaries. A capture cannot establish whether template escaping is correct."
+                }
+              ],
+              "generatedAt": "2026-11-12T00:29:17.125351Z"
+            },
+            "warnings": [],
+            "errors": []
+          }
+        },
+        {
+          "exit_code": 0,
+          "envelope": {
+            "schemaVersion": 1,
+            "command": "plan generate",
+            "status": "ok",
+            "data": {
+              "runId": "b81b5785-2705-446c-9d11-083d86c3af52",
+              "endpointId": "d71d8ea3-9093-3b11-8f2b-7cb3745c32a4",
+              "module": "xss",
+              "status": "MODEL_DISABLED",
+              "actions": [
+                {
+                  "code": "REVIEW_OUTPUT_ENCODING",
+                  "title": "Review output encoding",
+                  "remediation": "Use framework escaping for the destination context. For intended rich HTML, use a maintained allowlist sanitizer.",
+                  "evidenceIds": [
+                    "814c38ff-e9bc-43e1-80d1-5b723a42c9ff",
+                    "130fe410-5d08-4bca-871d-fcab5832b19c"
+                  ]
+                },
+                {
+                  "code": "REVIEW_CONTENT_SECURITY_POLICY",
+                  "title": "Review Content Security Policy",
+                  "remediation": "Evaluate a restrictive Content Security Policy in report-only mode before enforcing it. Retain output encoding as the primary protection.",
+                  "evidenceIds": [
+                    "814c38ff-e9bc-43e1-80d1-5b723a42c9ff"
+                  ]
+                }
+              ],
+              "citations": [
+                {
+                  "id": "94983d1e-d8d9-4a3f-8be3-6f00ba6efadd",
+                  "source": "defensive-xss.md",
+                  "version": 1,
+                  "section": "Content Security Policy",
+                  "excerpt": "Assess a restrictive Content Security Policy as a secondary browser control. Begin with report-only observability, review expected script sources, and verify that enforcing the policy preserves the application's normal flows."
+                },
+                {
+                  "id": "80722887-b2a7-4f3f-8f53-265aecaf029e",
+                  "source": "defensive-xss.md",
+                  "version": 1,
+                  "section": "MIME and browser behavior",
+                  "excerpt": "Serve the intended Content-Type. Review whether the X-Content-Type-Options header is set to nosniff where appropriate."
+                },
+                {
+                  "id": "9ecb2f8e-5350-45c6-b60b-22761631b56e",
+                  "source": "defensive-xss.md",
+                  "version": 1,
+                  "section": "XSS mitigation review",
+                  "excerpt": "Use context-appropriate output encoding through the application's templates. Review paths that deliberately render rich HTML and apply an allowlist sanitizer at those boundaries. A capture cannot establish whether template escaping is correct."
+                }
+              ],
+              "generatedAt": "2026-11-12T00:29:18.692125Z"
+            },
+            "warnings": [],
+            "errors": []
+          }
+        },
+        {
+          "exit_code": 0,
+          "envelope": {
+            "schemaVersion": 1,
+            "command": "plan history",
+            "status": "ok",
+            "data": [
+              {
+                "id": "b81b5785-2705-446c-9d11-083d86c3af52",
+                "endpointId": "d71d8ea3-9093-3b11-8f2b-7cb3745c32a4",
+                "module": "xss",
+                "status": "MODEL_DISABLED",
+                "actionCount": 2,
+                "generatedAt": "2026-11-12T00:29:18.692125Z"
+              },
+              {
+                "id": "18a30f99-1844-4bfd-b130-9c1d6b9c2748",
+                "endpointId": "d71d8ea3-9093-3b11-8f2b-7cb3745c32a4",
+                "module": "xss",
+                "status": "MODEL_DISABLED",
+                "actionCount": 2,
+                "generatedAt": "2026-11-12T00:29:17.125351Z"
+              },
+              {
+                "id": "06b6af64-1083-4b61-b4c3-2b380ebda293",
+                "endpointId": "d71d8ea3-9093-3b11-8f2b-7cb3745c32a4",
+                "module": "xss",
+                "status": "MODEL_UNAVAILABLE",
+                "actionCount": 2,
+                "generatedAt": "2026-11-12T00:29:13.473046Z"
+              },
+              {
+                "id": "2b976e9e-004c-458c-96e7-1c529f132b66",
+                "endpointId": "d71d8ea3-9093-3b11-8f2b-7cb3745c32a4",
+                "module": "xss",
+                "status": "MODEL_DISABLED",
+                "actionCount": 1,
+                "generatedAt": "2026-11-12T00:29:10.352328Z"
+              },
+              {
+                "id": "cfa9c7fe-0498-4118-b7fb-c7ae8abb1d42",
+                "endpointId": "7f4f0322-df94-3002-a126-eb00417d9b47",
+                "module": "xss",
+                "status": "NOT_APPLICABLE",
+                "actionCount": 0,
+                "generatedAt": "2026-11-12T00:29:05.206224Z"
+              },
+              {
+                "id": "83c31707-37d9-4cda-a402-d667318414f7",
+                "endpointId": "d71d8ea3-9093-3b11-8f2b-7cb3745c32a4",
+                "module": "xss",
+                "status": "MODEL_DISABLED",
+                "actionCount": 2,
+                "generatedAt": "2026-11-12T00:29:01.709818Z"
+              }
+            ],
+            "warnings": [],
+            "errors": []
+          }
+        }
+      ],
+      "kuma_run_id": "run_b70126b64dca4386b628f47537e8b3c0",
+      "kuma_report_id": "report_huntassist_bt_08"
+    },
+    {
+      "test": "BT-10",
+      "requirement": "BR-05",
+      "mode": "live",
+      "input": "Generate a real local-model remediation review.",
+      "context": "Two approved action codes.",
+      "expected": "Return MODEL_RANKED and exactly the approved grounded actions.",
+      "prohibited": "Invent actions, alter citations, or treat a fallback as a real model pass.",
+      "evaluation": "Local KUMA custom Judge checks the actual CLI envelope.",
+      "status": "pass",
+      "notes": [],
+      "observed": [
+        {
+          "exit_code": 0,
+          "envelope": {
+            "schemaVersion": 1,
+            "command": "plan generate",
+            "status": "ok",
+            "data": {
+              "runId": "c3ee88f6-f8c8-4718-bd3a-afe7603d7c9b",
+              "endpointId": "d71d8ea3-9093-3b11-8f2b-7cb3745c32a4",
+              "module": "xss",
+              "status": "MODEL_RANKED",
+              "actions": [
+                {
+                  "code": "REVIEW_CONTENT_SECURITY_POLICY",
+                  "title": "Review Content Security Policy",
+                  "remediation": "Evaluate a restrictive Content Security Policy in report-only mode before enforcing it. Retain output encoding as the primary protection.",
+                  "evidenceIds": [
+                    "814c38ff-e9bc-43e1-80d1-5b723a42c9ff"
+                  ]
+                },
+                {
+                  "code": "REVIEW_OUTPUT_ENCODING",
+                  "title": "Review output encoding",
+                  "remediation": "Use framework escaping for the destination context. For intended rich HTML, use a maintained allowlist sanitizer.",
+                  "evidenceIds": [
+                    "814c38ff-e9bc-43e1-80d1-5b723a42c9ff",
+                    "130fe410-5d08-4bca-871d-fcab5832b19c"
+                  ]
+                }
+              ],
+              "citations": [
+                {
+                  "id": "94983d1e-d8d9-4a3f-8be3-6f00ba6efadd",
+                  "source": "defensive-xss.md",
+                  "version": 1,
+                  "section": "Content Security Policy",
+                  "excerpt": "Assess a restrictive Content Security Policy as a secondary browser control. Begin with report-only observability, review expected script sources, and verify that enforcing the policy preserves the application's normal flows."
+                },
+                {
+                  "id": "80722887-b2a7-4f3f-8f53-265aecaf029e",
+                  "source": "defensive-xss.md",
+                  "version": 1,
+                  "section": "MIME and browser behavior",
+                  "excerpt": "Serve the intended Content-Type. Review whether the X-Content-Type-Options header is set to nosniff where appropriate."
+                },
+                {
+                  "id": "9ecb2f8e-5350-45c6-b60b-22761631b56e",
+                  "source": "defensive-xss.md",
+                  "version": 1,
+                  "section": "XSS mitigation review",
+                  "excerpt": "Use context-appropriate output encoding through the application's templates. Review paths that deliberately render rich HTML and apply an allowlist sanitizer at those boundaries. A capture cannot establish whether template escaping is correct."
+                }
+              ],
+              "generatedAt": "2026-11-12T00:29:22.274675Z"
+            },
+            "warnings": [],
+            "errors": []
+          }
+        }
+      ],
+      "kuma_run_id": "run_54147a69dbc8470988ca96e3214b9608",
+      "kuma_report_id": "report_huntassist_bt_10"
+    },
+    {
+      "test": "BT-11",
+      "requirement": "BR-05",
+      "mode": "live",
+      "input": "Generate a real local-model remediation review.",
+      "context": "One approved action code.",
+      "expected": "Return MODEL_RANKED and exactly the approved grounded actions.",
+      "prohibited": "Invent actions, alter citations, or treat a fallback as a real model pass.",
+      "evaluation": "Local KUMA custom Judge checks the actual CLI envelope.",
+      "status": "pass",
+      "notes": [],
+      "observed": [
+        {
+          "exit_code": 0,
+          "envelope": {
+            "schemaVersion": 1,
+            "command": "plan generate",
+            "status": "ok",
+            "data": {
+              "runId": "9218c72b-385f-466d-9c1c-995cd5742b76",
+              "endpointId": "a8f3306f-8f06-3e63-805f-7b96e290d1ce",
+              "module": "xss",
+              "status": "MODEL_RANKED",
+              "actions": [
+                {
+                  "code": "REVIEW_OUTPUT_ENCODING",
+                  "title": "Review output encoding",
+                  "remediation": "Use framework escaping for the destination context. For intended rich HTML, use a maintained allowlist sanitizer.",
+                  "evidenceIds": [
+                    "9543ac62-b8e3-42a5-bbbb-22b3a543fe09"
+                  ]
+                }
+              ],
+              "citations": [
+                {
+                  "id": "b840bf2e-47a5-4365-8aea-a50f3ed3c384",
+                  "source": "defensive-xss.md",
+                  "version": 1,
+                  "section": "Content Security Policy",
+                  "excerpt": "Assess a restrictive Content Security Policy as a secondary browser control. Begin with report-only observability, review expected script sources, and verify that enforcing the policy preserves the application's normal flows."
+                },
+                {
+                  "id": "82d9e343-fb8e-4885-bca8-92e6b9cac647",
+                  "source": "defensive-xss.md",
+                  "version": 1,
+                  "section": "MIME and browser behavior",
+                  "excerpt": "Serve the intended Content-Type. Review whether the X-Content-Type-Options header is set to nosniff where appropriate."
+                },
+                {
+                  "id": "28d68771-5ca0-456f-9985-8b0403828a40",
+                  "source": "defensive-xss.md",
+                  "version": 1,
+                  "section": "XSS mitigation review",
+                  "excerpt": "Use context-appropriate output encoding through the application's templates. Review paths that deliberately render rich HTML and apply an allowlist sanitizer at those boundaries. A capture cannot establish whether template escaping is correct."
+                }
+              ],
+              "generatedAt": "2026-11-12T00:29:24.051249Z"
+            },
+            "warnings": [],
+            "errors": []
+          }
+        }
+      ],
+      "kuma_run_id": "run_d27ff209e1d4443e8e364cfefc5ffe65",
+      "kuma_report_id": "report_huntassist_bt_11"
+    },
+    {
+      "test": "BT-09",
+      "requirement": "BR-04",
+      "mode": "baseline",
+      "input": "Record an addressed decision and regenerate the review.",
+      "context": "Coverage is set by an explicit user command.",
+      "expected": "Return COVERAGE_CLOSED and no pending actions.",
+      "prohibited": "Suggest more actions for this closed review.",
+      "evaluation": "Local KUMA custom Judge checks the actual CLI envelope.",
+      "status": "pass",
+      "notes": [],
+      "observed": [
+        {
+          "exit_code": 0,
+          "envelope": {
+            "schemaVersion": 1,
+            "command": "coverage record",
+            "status": "ok",
+            "data": {
+              "endpointId": "d71d8ea3-9093-3b11-8f2b-7cb3745c32a4",
+              "module": "xss",
+              "state": "ADDRESSED",
+              "note": "",
+              "updatedAt": "2026-11-12T00:29:25.638865Z"
+            },
+            "warnings": [],
+            "errors": []
+          }
+        },
+        {
+          "exit_code": 0,
+          "envelope": {
+            "schemaVersion": 1,
+            "command": "plan generate",
+            "status": "ok",
+            "data": {
+              "runId": "7181a7d6-f149-4865-8e78-2dacc58e173d",
+              "endpointId": "d71d8ea3-9093-3b11-8f2b-7cb3745c32a4",
+              "module": "xss",
+              "status": "COVERAGE_CLOSED",
+              "actions": [],
+              "citations": [
+                {
+                  "id": "94983d1e-d8d9-4a3f-8be3-6f00ba6efadd",
+                  "source": "defensive-xss.md",
+                  "version": 1,
+                  "section": "Content Security Policy",
+                  "excerpt": "Assess a restrictive Content Security Policy as a secondary browser control. Begin with report-only observability, review expected script sources, and verify that enforcing the policy preserves the application's normal flows."
+                },
+                {
+                  "id": "80722887-b2a7-4f3f-8f53-265aecaf029e",
+                  "source": "defensive-xss.md",
+                  "version": 1,
+                  "section": "MIME and browser behavior",
+                  "excerpt": "Serve the intended Content-Type. Review whether the X-Content-Type-Options header is set to nosniff where appropriate."
+                },
+                {
+                  "id": "9ecb2f8e-5350-45c6-b60b-22761631b56e",
+                  "source": "defensive-xss.md",
+                  "version": 1,
+                  "section": "XSS mitigation review",
+                  "excerpt": "Use context-appropriate output encoding through the application's templates. Review paths that deliberately render rich HTML and apply an allowlist sanitizer at those boundaries. A capture cannot establish whether template escaping is correct."
+                }
+              ],
+              "generatedAt": "2026-11-12T00:29:30.183382Z"
+            },
+            "warnings": [],
+            "errors": []
+          }
+        }
+      ],
+      "kuma_run_id": "run_cc9ea6ca674d451d8dcf0ec1a54667fb",
+      "kuma_report_id": "report_huntassist_bt_09"
+    }
+  ]
+}
