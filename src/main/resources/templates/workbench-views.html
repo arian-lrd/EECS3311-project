@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="knowledge">
+    <header class="page-header"><h1>Remediation notes</h1><p>Index local notes and find relevant sections with source and version references.</p></header>
+    <div class="columns">
+        <section class="panel">
+            <div class="panel-heading"><h2>Import a note</h2></div>
+            <form method="post" enctype="multipart/form-data" th:action="@{/projects/{id}/knowledge(id=${project.id})}" class="fields">
+                <input type="hidden" name="_csrf" th:value="${csrfToken}">
+                <label>Markdown, plain text or HTML <input type="file" name="file" accept=".md,.markdown,.txt,.html,.htm" required></label>
+                <small>Upload a file from a local Notion export or your own defensive notes.</small>
+                <button type="submit">Import note</button>
+            </form>
+        </section>
+        <section class="panel">
+            <div class="panel-heading"><h2>Find a section</h2></div>
+            <form method="get" th:action="@{/projects/{id}/knowledge(id=${project.id})}" class="fields">
+                <label>Search terms <input name="q" th:value="${q}" required maxlength="200" placeholder="content security policy"></label>
+                <button type="submit" class="secondary">Search notes</button>
+            </form>
+        </section>
+    </div>
+    <section class="panel" th:if="${citations != null}">
+        <div class="panel-heading"><h2>Search results</h2><span class="count" th:text="${#lists.size(citations)}">0</span></div>
+        <div th:replace="~{workbench-views :: citations(${citations})}"></div>
+    </section>
+    <section class="panel">
+        <div class="panel-heading"><h2>Imported versions</h2><span class="count" th:text="${#lists.size(notes)}">0</span></div>
+        <p class="empty" th:if="${#lists.isEmpty(notes)}">Import a note to build a local reference library.</p>
+        <div class="table-wrap" th:unless="${#lists.isEmpty(notes)}">
+            <table>
+                <thead><tr><th scope="col">Source</th><th scope="col">Version</th><th scope="col">Sections</th><th scope="col">Imported</th></tr></thead>
+                <tbody><tr th:each="note : ${notes}">
+                    <th scope="row" th:text="${note.source}">guidance.md</th>
+                    <td th:text="${note.version}">1</td>
+                    <td th:text="${note.sectionCount}">1</td>
+                    <td><time th:datetime="${note.importedAt}" th:text="${note.importedAt}">2026-11-11</time></td>
+                </tr></tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<div th:fragment="review">
+    <header class="page-header"><h1>Defensive review</h1><p>Review observed security controls and organize remediation for a captured endpoint.</p></header>
+    <section class="panel">
+        <div class="panel-heading"><h2>Choose an endpoint and review module</h2></div>
+        <p class="empty" th:if="${#lists.isEmpty(endpoints)}">Import a capture with an in-scope endpoint to run a review.</p>
+        <form th:unless="${#lists.isEmpty(endpoints)}" method="post" th:action="@{/projects/{id}/review(id=${project.id})}" class="fields">
+            <input type="hidden" name="_csrf" th:value="${csrfToken}">
+            <div class="form-grid two-fields">
+                <div th:replace="~{workbench-views :: endpointChoice}"></div>
+                <label><span id="review-module-label">Review module</span> <select name="module" aria-labelledby="review-module-label" required>
+                    <option th:each="module : ${modules}" th:value="${module.id}" th:text="${module.title}" th:selected="${module.id == selectedModule}"></option>
+                </select></label>
+            </div>
+            <div class="actions">
+                <button type="submit" name="operation" value="analyze">Review observations</button>
+                <button type="submit" name="operation" value="plan" class="secondary">Prioritize remediation</button>
+            </div>
+            <small>Prioritization uses the local model when available and records how the result was produced.</small>
+            <div class="question-block">
+                <div class="form-grid two-fields">
+                    <label>Ask a defensive question <input type="text" name="question" maxlength="300" placeholder="What should we know about content security policy?"></label>
+                    <button type="submit" name="operation" value="ask" class="secondary">Ask</button>
+                </div>
+            </div>
+        </form>
+        <details th:unless="${#lists.isEmpty(modules)}" class="module-details"><summary>Installed modules</summary>
+            <dl class="details compact">
+                <th:block th:each="module : ${modules}"><dt th:text="${module.title}">Review module</dt><dd th:text="${module.description}">Module description</dd></th:block>
+            </dl>
+        </details>
+    </section>
+    <th:block th:if="${analysis != null}"><section th:replace="~{workbench-views :: reviewResult(${analysis}, 'Observed controls')}"></section></th:block>
+    <th:block th:if="${plan != null}"><section th:replace="~{workbench-views :: reviewResult(${plan}, 'Remediation priorities')}"></section></th:block>
+    <th:block th:if="${answer != null}">
+        <section class="panel">
+            <div class="panel-heading"><h2>Question</h2></div>
+            <p th:text="${answer.question}">Question text</p>
+        </section>
+        <section th:replace="~{workbench-views :: reviewResult(${answer.analysis}, 'Related observations')}"></section>
+    </th:block>
+    <section class="panel">
+        <div class="panel-heading"><h2>Review run history</h2><span class="count" th:text="${#lists.size(runs)}">0</span></div>
+        <p class="empty" th:if="${#lists.isEmpty(runs)}">Prioritize remediation to record your first run.</p>
+        <div class="table-wrap" th:unless="${#lists.isEmpty(runs)}">
+            <table>
+                <thead><tr><th scope="col">Run</th><th scope="col">Endpoint</th><th scope="col">Module</th><th scope="col">Outcome</th><th scope="col">Actions</th><th scope="col">Created</th></tr></thead>
+                <tbody><tr th:each="run : ${runs}">
+                    <th scope="row"><code th:text="${run.id}">Run identifier</code></th>
+                    <td><a class="data-link" th:href="@{/projects/{id}/inventory(id=${project.id},endpoint=${run.endpointId})} + '#evidence'" th:text="${run.endpointId}">Endpoint identifier</a></td>
+                    <td th:text="${run.module}">xss</td>
+                    <td th:text="${#strings.replace(run.status, '_', ' ')}">Deterministic fallback</td>
+                    <td class="number" th:text="${run.actionCount}">1</td>
+                    <td><time th:datetime="${run.generatedAt}" th:text="${run.generatedAt}">2026-11-11</time></td>
+                </tr></tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<div th:fragment="coverage">
+    <header class="page-header"><h1>Coverage</h1><p>Record review decisions for each endpoint and remediation category.</p></header>
+    <section class="panel">
+        <div class="panel-heading"><h2>Record coverage</h2></div>
+        <p class="empty" th:if="${#lists.isEmpty(endpoints)}">Import an in-scope endpoint before recording coverage.</p>
+        <form th:unless="${#lists.isEmpty(endpoints)}" method="post" th:action="@{/projects/{id}/coverage(id=${project.id})}" class="fields">
+            <input type="hidden" name="_csrf" th:value="${csrfToken}">
+            <div class="form-grid">
+                <div th:replace="~{workbench-views :: endpointChoice}"></div>
+                <label><span id="coverage-module-label">Review module</span> <select name="module" aria-labelledby="coverage-module-label" required>
+                    <option th:each="module : ${modules}" th:value="${module.id}" th:text="${module.title}"></option>
+                </select></label>
+                <label><span id="coverage-state-label">State</span> <select name="state" aria-labelledby="coverage-state-label" required>
+                    <option th:each="state : ${states}" th:value="${state}" th:text="${#strings.replace(state, '_', ' ')}"></option>
+                </select></label>
+            </div>
+            <label>Decision note <span class="optional">optional</span><textarea name="note" rows="3" maxlength="400" placeholder="Record the decision or remaining work."></textarea></label>
+            <button type="submit">Save coverage</button>
+        </form>
+    </section>
+    <section class="panel">
+        <div class="panel-heading"><h2>Coverage records</h2><span class="count" th:text="${#lists.size(coverage)}">0</span></div>
+        <p class="empty" th:if="${#lists.isEmpty(coverage)}">Saved coverage records appear here.</p>
+        <div class="table-wrap" th:unless="${#lists.isEmpty(coverage)}">
+            <table>
+                <thead><tr><th scope="col">Endpoint</th><th scope="col">Module</th><th scope="col">State</th><th scope="col">Decision note</th><th scope="col">Updated</th></tr></thead>
+                <tbody><tr th:each="entry : ${coverage}">
+                    <th scope="row"><a class="data-link" th:href="@{/projects/{id}/inventory(id=${project.id},endpoint=${entry.endpointId})} + '#evidence'" th:text="${entry.endpointId}">Endpoint identifier</a></th>
+                    <td th:text="${entry.module}">xss</td>
+                    <td><span class="tag" th:text="${#strings.replace(entry.state, '_', ' ')}">IN REVIEW</span></td>
+                    <td class="preserve" th:text="${entry.note}">Decision note</td>
+                    <td><time th:datetime="${entry.updatedAt}" th:text="${entry.updatedAt}">2026-11-11</time></td>
+                </tr></tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<label th:fragment="endpointChoice"><span id="captured-endpoint-label">Captured endpoint</span>
+    <select name="endpoint" aria-labelledby="captured-endpoint-label" required>
+        <option value="">Choose an endpoint</option>
+        <option th:each="endpoint : ${endpoints}" th:value="${endpoint.id}" th:text="|${endpoint.method} ${endpoint.host}${endpoint.path}|" th:selected="${endpoint.id == selectedEndpoint}"></option>
+    </select>
+    <small th:if="${endpointCount > 250}">To review another endpoint, find it in the <a th:href="@{/projects/{id}/inventory(id=${project.id})}">inventory</a> and open its observations.</small>
+</label>
+
+<section th:fragment="reviewResult(result, title)" class="panel">
+    <div class="panel-heading"><h2 th:text="${title}">Review result</h2><span class="tag" th:text="${#strings.replace(result.status, '_', ' ')}">Reviewed</span></div>
+    <p class="empty" th:if="${#lists.isEmpty(result.actions)}"
+       th:text="${result.status == 'COVERAGE_CLOSED' ? 'Coverage for this endpoint and module is closed.' : (result.status == 'NO_MATCHING_ACTIONS' ? 'No remediation actions match this question and the recorded observations.' : 'No remediation actions apply to the recorded metadata.')}">No remediation actions apply to the recorded metadata.</p>
+    <ol class="review-list" th:unless="${#lists.isEmpty(result.actions)}">
+        <li th:each="action : ${result.actions}">
+            <strong th:text="${action.title}">Remediation title</strong>
+            <p th:text="${action.remediation}">Remediation guidance</p>
+            <details th:unless="${#lists.isEmpty(action.evidenceIds)}"><summary>Supporting evidence</summary>
+                <a class="data-link" th:href="@{/projects/{id}/inventory(id=${project.id},endpoint=${result.endpointId})} + '#evidence'">Open recorded observations</a>
+                <ul class="token-list"><li th:each="id : ${action.evidenceIds}"><code th:text="${id}">Evidence identifier</code></li></ul>
+            </details>
+        </li>
+    </ol>
+    <h3 th:unless="${#lists.isEmpty(result.citations)}">Related notes</h3>
+    <div th:if="${!#lists.isEmpty(result.citations)}" th:insert="~{workbench-views :: citations(${result.citations})}"></div>
+</section>
+
+<div th:fragment="citations(items)">
+    <p class="empty" th:if="${#lists.isEmpty(items)}">No matching note sections were found.</p>
+    <ul class="citation-list" th:unless="${#lists.isEmpty(items)}">
+        <li th:each="citation : ${items}">
+            <strong th:text="${citation.section}">Section title</strong>
+            <small th:text="|${citation.source} · version ${citation.version}|">Source and version</small>
+            <p th:text="${citation.excerpt}">Note excerpt</p>
+            <code th:text="${citation.id}">Section reference</code>
+        </li>
+    </ul>
+</div>
+</body>
+</html>

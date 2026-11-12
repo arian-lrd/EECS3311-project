@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Workspaces · HuntAssist</title>
+    <link rel="stylesheet" th:href="@{/huntassist.css}">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-bar">
+    <div class="site-bar-inner">
+        <a class="brand" th:href="@{/}"><span class="brand-mark" aria-hidden="true">H</span> HuntAssist</a>
+        <span class="local-status"><span aria-hidden="true"></span> Local workspace</span>
+    </div>
+</header>
+<main id="main" class="landing">
+    <div class="page-header">
+        <p class="eyebrow">Evidence review</p>
+        <h1>Workspaces</h1>
+        <p>Review captured HTTP metadata and track remediation in a scoped workspace.</p>
+    </div>
+    <div class="landing-columns">
+        <section class="panel" aria-labelledby="recent-heading">
+            <div class="panel-heading">
+                <h2 id="recent-heading">Your workspaces</h2>
+                <span class="count" th:text="${#lists.size(projects)}">0</span>
+            </div>
+            <p class="empty" th:if="${#lists.isEmpty(projects)}">Create your first workspace to get started.</p>
+            <ul class="workspace-list" th:unless="${#lists.isEmpty(projects)}">
+                <li th:each="item : ${projects}">
+                    <a th:href="@{/projects/{id}/overview(id=${item.id})}">
+                        <span>
+                            <strong th:text="${item.name}">Workspace name</strong>
+                            <small th:text="|${#lists.size(item.includes)} scope rules|">1 scope rule</small>
+                        </span>
+                        <span aria-hidden="true">→</span>
+                    </a>
+                </li>
+            </ul>
+        </section>
+        <section class="panel" aria-labelledby="create-heading">
+            <div class="panel-heading"><h2 id="create-heading">New workspace</h2></div>
+            <form th:action="@{/projects}" method="post" class="fields">
+                <input type="hidden" name="_csrf" th:value="${csrfToken}">
+                <label>Workspace name
+                    <input type="text" name="name" required maxlength="120" placeholder="Example App">
+                </label>
+                <label>Included hosts
+                    <textarea name="includes" required rows="3" maxlength="4000" placeholder="app.example.test"></textarea>
+                    <small>Enter one rule per line. Use <code>*.example.test</code> for subdomains.</small>
+                </label>
+                <label>Excluded hosts <span class="optional">optional</span>
+                    <textarea name="excludes" rows="2" maxlength="4000" placeholder="admin.example.test"></textarea>
+                </label>
+                <label>Program restrictions <span class="optional">optional</span>
+                    <textarea name="restrictions" rows="2" maxlength="2000" placeholder="Record program-specific review restrictions."></textarea>
+                </label>
+                <button type="submit">Create workspace</button>
+            </form>
+        </section>
+    </div>
+</main>
+</body>
+</html>

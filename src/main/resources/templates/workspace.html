@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="|${project.name} · HuntAssist|">Workspace · HuntAssist</title>
+    <link rel="stylesheet" th:href="@{/huntassist.css}">
+</head>
+<body class="workspace-shell">
+<a class="skip-link" href="#main">Skip to content</a>
+<aside class="sidebar">
+    <a class="brand" th:href="@{/}"><span class="brand-mark" aria-hidden="true">H</span> HuntAssist</a>
+    <div class="workspace-context">
+        <p class="eyebrow">Workspace</p>
+        <strong th:text="${project.name}">Workspace name</strong>
+    </div>
+    <nav aria-label="Workspace" class="nav">
+        <a th:href="@{/projects/{id}/overview(id=${project.id})}" th:attr="aria-current=${view == 'overview' ? 'page' : null}">Overview</a>
+        <a th:href="@{/projects/{id}/traffic(id=${project.id})}" th:attr="aria-current=${view == 'traffic' ? 'page' : null}">Traffic imports</a>
+        <a th:href="@{/projects/{id}/inventory(id=${project.id})}" th:attr="aria-current=${view == 'inventory' ? 'page' : null}">Endpoint inventory</a>
+        <a th:href="@{/projects/{id}/compare(id=${project.id})}" th:attr="aria-current=${view == 'compare' ? 'page' : null}">Compare profiles</a>
+        <a th:href="@{/projects/{id}/knowledge(id=${project.id})}" th:attr="aria-current=${view == 'knowledge' ? 'page' : null}">Remediation notes</a>
+        <a th:href="@{/projects/{id}/review(id=${project.id})}" th:attr="aria-current=${view == 'review' ? 'page' : null}">Defensive review</a>
+        <a th:href="@{/projects/{id}/coverage(id=${project.id})}" th:attr="aria-current=${view == 'coverage' ? 'page' : null}">Coverage</a>
+    </nav>
+    <a class="workspace-back" th:href="@{/}">← All workspaces</a>
+    <span class="local-status"><span aria-hidden="true"></span> Local workspace</span>
+</aside>
+<main id="main" class="workspace-main" tabindex="-1">
+    <div class="notice" role="status" th:if="${notice != null}" th:text="${notice}">Workspace updated.</div>
+    <div th:switch="${view}">
+        <div th:case="'overview'">
+            <header class="page-header with-action">
+                <div>
+                    <p class="eyebrow">Overview</p>
+                    <h1 th:text="${project.name}">Workspace name</h1>
+                    <p>Review the authorized scope and see what this workspace contains.</p>
+                </div>
+                <a class="button" th:href="@{/projects/{id}/traffic(id=${project.id})}">Import capture</a>
+            </header>
+            <div class="metrics" aria-label="Workspace activity">
+                <a class="metric" th:href="@{/projects/{id}/inventory(id=${project.id})}"><strong th:text="${endpointCount}">0</strong><span>Endpoints</span></a>
+                <a class="metric" th:href="@{/projects/{id}/traffic(id=${project.id})}"><strong th:text="${importCount}">0</strong><span>Traffic imports</span></a>
+                <a class="metric" th:href="@{/projects/{id}/knowledge(id=${project.id})}"><strong th:text="${noteCount}">0</strong><span>Note versions</span></a>
+                <a class="metric" th:href="@{/projects/{id}/coverage(id=${project.id})}"><strong th:text="${coverageCount}">0</strong><span>Coverage records</span></a>
+            </div>
+            <div class="columns">
+                <section class="panel">
+                    <div class="panel-heading"><h2>Program scope</h2></div>
+                    <dl class="details">
+                        <dt>Included hosts</dt>
+                        <dd><ul class="token-list"><li th:each="rule : ${project.includes}"><code th:text="${rule}">app.example.test</code></li></ul></dd>
+                        <dt>Excluded hosts</dt>
+                        <dd th:if="${#lists.isEmpty(project.excludes)}" class="muted">None</dd>
+                        <dd th:unless="${#lists.isEmpty(project.excludes)}"><ul class="token-list"><li th:each="rule : ${project.excludes}"><code th:text="${rule}">admin.example.test</code></li></ul></dd>
+                        <dt>Restrictions</dt>
+                        <dd class="preserve" th:text="${#strings.isEmpty(project.restrictions) ? 'None recorded' : project.restrictions}">None recorded</dd>
+                    </dl>
+                </section>
+                <section class="panel">
+                    <div class="panel-heading"><h2>Check a host</h2></div>
+                    <form method="get" th:action="@{/projects/{id}/overview(id=${project.id})}" class="fields">
+                        <label>Host <input name="host" th:value="${checkedHost}" required maxlength="253" placeholder="app.example.test"></label>
+                        <button type="submit" class="secondary">Check scope</button>
+                    </form>
+                    <p class="inline-result" role="status" th:if="${scopeDecision != null}">
+                        <strong th:text="${scopeDecision}">In scope</strong>
+                        <code th:text="${checkedHost}">app.example.test</code>
+                    </p>
+                </section>
+            </div>
+        </div>
+
+        <div th:case="'traffic'">
+            <header class="page-header"><h1>Traffic imports</h1><p>Import an offline capture and retain sanitized metadata for hosts in scope.</p></header>
+            <section class="panel">
+                <div class="panel-heading"><h2>Import a capture</h2></div>
+                <form method="post" enctype="multipart/form-data" th:action="@{/projects/{id}/traffic(id=${project.id})}" class="form-grid">
+                    <input type="hidden" name="_csrf" th:value="${csrfToken}">
+                    <label>Burp XML or HAR file <input type="file" name="file" required aria-describedby="traffic-help"></label>
+                    <label>Capture profile <span class="optional">optional</span><input name="profile" maxlength="64" placeholder="default"></label>
+                    <button type="submit">Import traffic</button>
+                    <small id="traffic-help" class="form-help">Use a label such as <code>viewer</code> or <code>editor</code> to compare profiles later.</small>
+                </form>
+            </section>
+            <section class="panel">
+                <div class="panel-heading"><h2>Import history</h2><span class="count" th:text="${#lists.size(imports)}">0</span></div>
+                <p class="empty" th:if="${#lists.isEmpty(imports)}">Imports appear here after you add a capture.</p>
+                <div class="table-wrap" th:unless="${#lists.isEmpty(imports)}">
+                    <table>
+                        <thead><tr><th scope="col">Profile</th><th scope="col">Imported</th><th scope="col">Retained</th><th scope="col">Out of scope</th><th scope="col">Invalid</th><th scope="col">Import ID</th></tr></thead>
+                        <tbody>
+                        <tr th:each="item : ${imports}">
+                            <th scope="row" th:text="${item.profile}">default</th>
+                            <td><time th:datetime="${item.importedAt}" th:text="${item.importedAt}">2026-11-11</time></td>
+                            <td class="number" th:text="${item.accepted}">0</td>
+                            <td class="number" th:text="${item.outOfScope}">0</td>
+                            <td class="number" th:text="${item.invalid}">0</td>
+                            <td><code th:text="${item.id}">Import identifier</code></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <div th:case="'inventory'">
+            <header class="page-header"><h1>Endpoint inventory</h1><p>Browse captured methods and paths, then open the underlying observations.</p></header>
+            <section class="panel">
+                <div class="panel-heading"><h2>Observed endpoints</h2><span class="count" th:text="${matchCount}">0</span></div>
+                <form method="get" th:action="@{/projects/{id}/inventory(id=${project.id})}" class="filter-bar">
+                    <label>Filter by method, host or path <input name="q" th:value="${q}" maxlength="160" placeholder="GET, example.test or /account"></label>
+                    <button class="secondary" type="submit">Filter endpoints</button>
+                </form>
+                <p class="empty" th:if="${#lists.isEmpty(endpoints)}">No endpoints match this view. Import traffic or change the filter.</p>
+                <div class="table-wrap" th:unless="${#lists.isEmpty(endpoints)}">
+                    <table>
+                        <thead><tr><th scope="col">Method</th><th scope="col">Host</th><th scope="col">Path</th><th scope="col">Observations</th></tr></thead>
+                        <tbody>
+                        <tr th:each="endpoint : ${endpoints}" th:classappend="${endpoint.id == selectedEndpoint ? 'selected' : ''}">
+                            <td><span class="tag" th:text="${endpoint.method}">GET</span></td>
+                            <td th:text="${endpoint.host}">app.example.test</td>
+                            <th scope="row"><a class="data-link" th:href="@{/projects/{id}/inventory(id=${project.id},endpoint=${endpoint.id},q=${q},page=${page})} + '#evidence'" th:text="${endpoint.path}">/account</a></th>
+                            <td class="number" th:text="${endpoint.observations}">0</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <nav aria-label="Endpoint inventory pages" class="pager" th:if="${pageCount > 1}">
+                    <a th:if="${page > 1}" th:href="@{/projects/{id}/inventory(id=${project.id},q=${q},page=${page - 1})}">Previous page</a>
+                    <span th:text="|Page ${page} of ${pageCount}|">Page 1 of 1</span>
+                    <a th:if="${page < pageCount}" th:href="@{/projects/{id}/inventory(id=${project.id},q=${q},page=${page + 1})}">Next page</a>
+                </nav>
+            </section>
+            <section class="panel" id="evidence" th:if="${selectedEndpoint != null}">
+                <div class="panel-heading">
+                    <h2>Recorded observations</h2>
+                    <a class="button secondary" th:href="@{/projects/{id}/review(id=${project.id},endpoint=${selectedEndpoint})}">Review endpoint</a>
+                </div>
+                <p class="muted" th:text="|Endpoint ${selectedEndpoint}|">Endpoint identifier</p>
+                <p class="muted" th:if="${observationCount > 250}">Showing the first 250 observations. Use the CLI for a full export of sanitized metadata.</p>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th scope="col">Profile</th><th scope="col">Status</th><th scope="col">Content type</th><th scope="col">CSP</th><th scope="col">Nosniff</th><th scope="col">Frame options</th><th scope="col">Evidence</th></tr></thead>
+                        <tbody>
+                        <tr th:each="item : ${observations}">
+                            <th scope="row" th:text="${item.profile}">default</th>
+                            <td class="number" th:text="${item.status}">200</td>
+                            <td th:text="${#strings.isEmpty(item.contentType) ? 'Unknown' : item.contentType}">text/html</td>
+                            <td th:text="${item.contentSecurityPolicy ? 'Present' : 'Absent'}">Absent</td>
+                            <td th:text="${item.contentTypeOptions ? 'Present' : 'Absent'}">Absent</td>
+                            <td th:text="${item.frameOptions ? 'Present' : 'Absent'}">Absent</td>
+                            <td><details><summary>Evidence reference</summary>
+                                <dl class="details compact">
+                                    <dt>Observation</dt><dd><code th:text="${item.id}">Observation identifier</code></dd>
+                                    <dt>Import</dt><dd><code th:text="${item.importId}">Import identifier</code></dd>
+                                    <dt>Capture entry</dt><dd th:text="${item.sourceIndex}">1</dd>
+                                </dl>
+                            </details></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <div th:case="'compare'">
+            <header class="page-header"><h1>Compare profiles</h1><p>Compare capture counts and observed HTTP status codes for two profile labels.</p></header>
+            <section class="panel">
+                <div class="panel-heading"><h2>Profile comparison</h2></div>
+                <p class="empty" th:if="${#lists.size(profiles) < 2}">Import captures under at least two profile labels to use this view.</p>
+                <form th:unless="${#lists.size(profiles) < 2}" method="get" th:action="@{/projects/{id}/compare(id=${project.id})}" class="form-grid">
+                    <label><span id="first-profile-label">First profile</span> <select name="first" aria-labelledby="first-profile-label" required>
+                        <option value="">Choose a profile</option>
+                        <option th:each="profile : ${profiles}" th:value="${profile}" th:text="${profile}" th:selected="${profile == first}"></option>
+                    </select></label>
+                    <label><span id="second-profile-label">Second profile</span> <select name="second" aria-labelledby="second-profile-label" required>
+                        <option value="">Choose a profile</option>
+                        <option th:each="profile : ${profiles}" th:value="${profile}" th:text="${profile}" th:selected="${profile == second}"></option>
+                    </select></label>
+                    <button type="submit">Compare profiles</button>
+                </form>
+            </section>
+            <section class="panel" th:if="${comparison != null}">
+                <div class="panel-heading"><h2>Observed differences</h2></div>
+                <p class="empty" th:if="${#lists.isEmpty(comparison)}">No observations were available for these profiles.</p>
+                <div class="table-wrap" th:unless="${#lists.isEmpty(comparison)}">
+                    <table>
+                        <thead><tr><th scope="col">Endpoint</th><th scope="col" th:text="${first}">First profile</th><th scope="col" th:text="${second}">Second profile</th></tr></thead>
+                        <tbody><tr th:each="item : ${comparison}">
+                            <th scope="row"><span class="tag" th:text="${item.method}">GET</span> <a class="data-link" th:href="@{/projects/{id}/inventory(id=${project.id},endpoint=${item.endpointId})} + '#evidence'" th:text="|${item.host}${item.path}|">app.example.test/account</a></th>
+                            <td><strong th:text="|${item.firstCount} observations|">0 observations</strong><small th:text="|Status codes ${item.firstStatuses}|">Status codes</small></td>
+                            <td><strong th:text="|${item.secondCount} observations|">0 observations</strong><small th:text="|Status codes ${item.secondStatuses}|">Status codes</small></td>
+                        </tr></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <div th:case="'knowledge'" th:insert="~{workbench-views :: knowledge}"></div>
+        <div th:case="'review'" th:insert="~{workbench-views :: review}"></div>
+        <div th:case="'coverage'" th:insert="~{workbench-views :: coverage}"></div>
+    </div>
+</main>
+</body>
+</html>

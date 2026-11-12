@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE items [
+  <!ELEMENT items (item*)>
+  <!ELEMENT item ANY>
+]>
+<items burpVersion="synthetic-fixture">
+  <item>
+    <url>https://shop.example.test/catalog?session=fixture-session-only&amp;view=list</url>
+    <method>GET</method>
+    <status>200</status>
+    <mimetype>HTML</mimetype>
+    <response base64="false"><![CDATA[HTTP/1.1 200 OK
+Content-Type: text/html; charset=utf-8
+X-Content-Type-Options: nosniff
+Set-Cookie: example=fixture-cookie-only
+
+<!doctype html><html><body>Sample catalog</body></html>]]></response>
+  </item>
+  <item>
+    <url>https://shop.example.test/accounts/fixtureperson/settings</url>
+    <method>GET</method>
+    <status>403</status>
+    <mimetype>JSON</mimetype>
+  </item>
+  <item>
+    <url>https://external.example.test/status</url>
+    <method>GET</method>
+    <status>200</status>
+    <mimetype>JSON</mimetype>
+  </item>
+  <item>
+    <url>https://shop.example.test/incomplete</url>
+    <method>GET</method>
+    <status>0</status>
+  </item>
+</items>

@@ -1,7 +1,8 @@
 # Raw bug-bounty evidence
-captures/
-evidence/
-local-data/
+/captures/
+/evidence/
+/local-data/
+/.huntassist/
 *.pcap
 *.pcapng
 *.har
@@ -13,6 +14,7 @@ burp*.xml
 .env.*
 !.env.example
 secrets/
+config.local.json
 *.pem
 *.key
 *.p12
@@ -38,4 +40,7 @@ target/
 .project
 .settings/
 .DS_Store
+.venv/
+__pycache__/
+.kuma/
 

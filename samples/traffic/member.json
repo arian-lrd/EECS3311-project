@@ -1,0 +1,28 @@
+{
+  "log": {
+    "version": "1.2",
+    "creator": {"name": "HuntAssist synthetic fixture", "version": "1"},
+    "entries": [
+      {
+        "request": {"method": "GET", "url": "https://shop.example.test/catalog?view=grid#fixture-fragment"},
+        "response": {
+          "status": 200,
+          "headers": [
+            {"name": "Content-Security-Policy", "value": "default-src 'self'"},
+            {"name": "X-Content-Type-Options", "value": "nosniff"},
+            {"name": "X-Frame-Options", "value": "DENY"}
+          ],
+          "content": {"mimeType": "text/html; charset=utf-8", "text": "<html>Sample catalog</html>"}
+        }
+      },
+      {
+        "request": {"method": "GET", "url": "https://shop.example.test/accounts/anotherperson/settings"},
+        "response": {
+          "status": 200,
+          "headers": [{"name": "Content-Type", "value": "application/json"}],
+          "content": {"mimeType": "application/json", "text": "{\"sample\":true}"}
+        }
+      }
+    ]
+  }
+}

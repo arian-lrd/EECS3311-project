@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Request problem · HuntAssist</title>
+    <link rel="stylesheet" th:href="@{/huntassist.css}">
+</head>
+<body>
+<header class="site-bar"><div class="site-bar-inner">
+    <a class="brand" th:href="@{/}"><span class="brand-mark" aria-hidden="true">H</span> HuntAssist</a>
+</div></header>
+<main class="landing">
+    <section class="panel problem" aria-labelledby="problem-heading">
+        <h1 id="problem-heading">Request could not be completed</h1>
+        <p th:text="${problem}">Check the form and try again.</p>
+        <a class="button secondary" th:href="@{/}">Back to workspaces</a>
+    </section>
+</main>
+</body>
+</html>
