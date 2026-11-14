@@ -19,7 +19,11 @@ class ProjectStoreLockTest {
         try (var owner = ProjectStoreLock.acquire(store)) {
             assertThat(owner.directory()).isEqualTo(store.toRealPath());
             assertThatExceptionOfType(AppException.class).isThrownBy(() -> ProjectStoreLock.acquire(store))
-                    .satisfies(failure -> assertThat(failure.code()).isEqualTo(AppException.Code.CONFLICT));
+                    .satisfies(failure -> {
+                        assertThat(failure.code()).isEqualTo(AppException.Code.CONFLICT);
+                        assertThat(failure.getMessage()).contains(owner.directory().toString());
+                        assertThat(failure.getMessage()).contains("Close the HuntAssist server");
+                    });
         }
         try (var next = ProjectStoreLock.acquire(store)) {
             assertThat(next.directory()).isEqualTo(store.toRealPath());

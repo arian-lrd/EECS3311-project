@@ -34,12 +34,12 @@ public final class ProjectStoreLock implements AutoCloseable {
             try {
                 FileLock lock = channel.tryLock();
                 if (lock == null) {
-                    throw busy();
+                    throw busy(directory);
                 }
                 return new ProjectStoreLock(channel, lock, directory);
             } catch (OverlappingFileLockException e) {
                 channel.close();
-                throw busy();
+                throw busy(directory);
             } catch (RuntimeException | IOException e) {
                 channel.close();
                 throw e;
@@ -79,8 +79,9 @@ public final class ProjectStoreLock implements AutoCloseable {
         }
     }
 
-    private static AppException busy() {
-        return AppException.conflict("The project store is in use. Close the browser server or other command and retry.");
+    private static AppException busy(Path directory) {
+        return AppException.conflict("The project store is in use: " + directory
+                + ". Close the HuntAssist server or other command using this store and retry.");
     }
 
     @Override
